@@ -1,0 +1,2622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TreeLab — Interactive Tree Learning & Algorithm Workbench</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Typography: Plus Jakarta Sans, JetBrains Mono, Patrick Hand -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Patrick+Hand&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            hand: ['"Patrick Hand"', 'cursive'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            paper: {
+              50: '#FAF8F5',
+              100: '#F4EFEA',
+              200: '#E9E2D8',
+              300: '#DBD1C4',
+              600: '#786F62',
+              700: '#5C5449',
+              800: '#3D372F',
+              900: '#26221D',
+            },
+            forest: {
+              50: '#ECF6F0',
+              100: '#D5EBDF',
+              200: '#ABDCBF',
+              500: '#2D6A4F',
+              600: '#1B4332',
+              700: '#143526',
+              800: '#0B2418',
+            },
+            terracotta: {
+              50: '#FEF3F0',
+              100: '#FDE4DC',
+              500: '#C2410C',
+              600: '#9A3412',
+            },
+            ochre: {
+              50: '#FFFDF5',
+              100: '#FEF3C7',
+              200: '#FDE68A',
+              500: '#D97706',
+              600: '#B45309',
+            },
+            rbRed: '#DC2626',
+            rbBlack: '#1E293B'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Warm botanical paper atmosphere */
+    body {
+      background-color: #FAF8F5;
+      background-image: radial-gradient(#E4DED5 0.95px, transparent 0.95px);
+      background-size: 22px 22px;
+      color: #2D2721;
+    }
+
+    .paper-card {
+      background-color: #FFFFFF;
+      border: 1.5px solid #E2D9CE;
+      box-shadow: 0 4px 14px -3px rgba(61, 55, 47, 0.06), 0 1px 3px rgba(61, 55, 47, 0.04);
+      border-radius: 18px;
+    }
+
+    .paper-card-warm {
+      background-color: #FCFAF7;
+      border: 1.5px solid #DDD3C5;
+      border-radius: 16px;
+    }
+
+    .sticky-note {
+      background: #FFFBEB;
+      border: 1.5px solid #FDE68A;
+      box-shadow: 2px 4px 12px rgba(180, 83, 9, 0.07);
+      position: relative;
+    }
+    .sticky-note::after {
+      content: "";
+      position: absolute;
+      top: -7px;
+      left: 36%;
+      width: 55px;
+      height: 14px;
+      background: rgba(245, 158, 11, 0.28);
+      backdrop-filter: blur(1px);
+      transform: rotate(-2deg);
+      border-radius: 2px;
+    }
+
+    /* SVG tree elements */
+    .svg-edge {
+      stroke: #A89F91;
+      stroke-width: 2.5px;
+      stroke-linecap: round;
+      transition: stroke 0.3s ease, stroke-width 0.3s ease;
+    }
+    .svg-edge.path-highlight {
+      stroke: #2D6A4F;
+      stroke-width: 4.5px;
+      stroke-dasharray: 6 4;
+      animation: dashWalk 1s linear infinite;
+    }
+    @keyframes dashWalk {
+      to { stroke-dashoffset: -10; }
+    }
+
+    .node-group {
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .node-group:hover {
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.12));
+    }
+    .node-circle {
+      transition: all 0.25s ease;
+    }
+
+    @keyframes visitPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.22); }
+      100% { transform: scale(1); }
+    }
+    .visiting-pulse {
+      animation: visitPulse 0.4s ease-in-out;
+    }
+
+    /* Interactive canvas cursor */
+    .infinite-canvas {
+      cursor: grab;
+      touch-action: none;
+    }
+    .infinite-canvas:active {
+      cursor: grabbing;
+    }
+
+    /* Custom scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #F4EFEA; }
+    ::-webkit-scrollbar-thumb { background: #C7BEB1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #A89F91; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans selection:bg-forest-100 selection:text-forest-800">
+
+  <!-- Header Navigation -->
+  <header class="sticky top-0 z-40 bg-[#FAF8F5]/92 backdrop-blur-md border-b border-paper-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16 sm:h-20">
+        
+        <!-- Brand -->
+        <div class="flex items-center space-x-3 cursor-pointer" onclick="navigate('workbench')">
+          <div class="w-11 h-11 rounded-2xl bg-forest-600 text-white flex items-center justify-center text-2xl shadow-md shadow-forest-600/20 transform -rotate-2 hover:rotate-0 transition-transform">
+            🌿
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="font-extrabold text-xl tracking-tight text-forest-700">Tree<span class="text-terracotta-500">Lab</span></span>
+              <span class="text-[11px] px-2 py-0.5 rounded-full bg-forest-50 border border-forest-100 text-forest-600 font-mono font-bold">Workbench</span>
+            </div>
+            <p class="text-[12px] text-paper-700 hidden sm:block font-medium">Data Structures & Algorithm Laboratory</p>
+          </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <nav class="hidden md:flex items-center space-x-1 font-medium text-sm">
+          <button onclick="navigate('workbench')" id="nav-workbench" class="nav-btn px-3 py-2 rounded-xl text-paper-700 hover:text-forest-700 hover:bg-paper-100 transition-all">🛠 Workbench</button>
+          <button onclick="navigate('traversal')" id="nav-traversal" class="nav-btn px-3 py-2 rounded-xl text-paper-700 hover:text-forest-700 hover:bg-paper-100 transition-all">🔄 Traversal Lab</button>
+          <button onclick="navigate('heap')" id="nav-heap" class="nav-btn px-3 py-2 rounded-xl text-paper-700 hover:text-forest-700 hover:bg-paper-100 transition-all">⛰️ Heap View</button>
+          <button onclick="navigate('arena')" id="nav-arena" class="nav-btn px-3 py-2 rounded-xl text-paper-700 hover:text-forest-700 hover:bg-paper-100 transition-all">🎯 Arena</button>
+          <button onclick="navigate('primer')" id="nav-primer" class="nav-btn px-3 py-2 rounded-xl text-paper-700 hover:text-forest-700 hover:bg-paper-100 transition-all">📖 Primer</button>
+        </nav>
+
+        <!-- Gamification HUD: XP, Streak, Audio -->
+        <div class="flex items-center space-x-3">
+          <div class="flex flex-col items-end">
+            <div class="flex items-center space-x-2">
+              <span id="header-streak-badge" class="px-2 py-0.5 text-xs font-bold rounded-md bg-amber-50 text-amber-700 border border-amber-300">🔥 0 (1.0x)</span>
+              <span id="header-rank-badge" class="px-2 py-0.5 text-xs font-bold rounded-md bg-forest-100 text-forest-700 border border-forest-500/20">LVL 1 Seedling</span>
+              <span id="header-xp-text" class="text-xs font-mono font-semibold text-paper-700">0 / 200 XP</span>
+            </div>
+            <div class="w-28 sm:w-36 bg-paper-200 rounded-full h-1.5 mt-1 overflow-hidden">
+              <div id="header-xp-bar" class="bg-forest-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <button id="sound-btn" onclick="toggleAudio()" title="Toggle Web Audio" class="p-2.5 rounded-xl bg-white border border-paper-200 hover:border-forest-500 text-paper-700 transition-all shadow-sm">
+            🔔
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation -->
+    <div class="flex md:hidden overflow-x-auto px-4 py-2 border-t border-paper-200 bg-[#FAF8F5] space-x-2 text-xs scrollbar-none font-medium">
+      <button onclick="navigate('workbench')" class="px-3 py-1.5 rounded-lg bg-white border border-paper-200 shrink-0">Workbench</button>
+      <button onclick="navigate('traversal')" class="px-3 py-1.5 rounded-lg bg-white border border-paper-200 shrink-0">Traversals</button>
+      <button onclick="navigate('heap')" class="px-3 py-1.5 rounded-lg bg-white border border-paper-200 shrink-0">Heap View</button>
+      <button onclick="navigate('arena')" class="px-3 py-1.5 rounded-lg bg-white border border-paper-200 shrink-0">Arena</button>
+      <button onclick="navigate('primer')" class="px-3 py-1.5 rounded-lg bg-white border border-paper-200 shrink-0">Primer</button>
+    </div>
+  </header>
+
+  <!-- Notification Toast Container -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- Confetti Canvas for Level Up -->
+  <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-50"></canvas>
+
+  <!-- MAIN VIEWPORT CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+
+    <!-- ==========================================
+         SECTION 1: WORKBENCH (MAIN VISUALIZER)
+         ========================================== -->
+    <section id="view-workbench" class="view-section space-y-5">
+      <!-- Title & Model Selectors -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-paper-200">
+        <div>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-forest-800 flex items-center gap-2">
+            <span>🛠</span> Tree Workbench &amp; Algorithm Visualizer
+          </h2>
+          <p class="text-xs sm:text-sm text-paper-700 mt-0.5">Explore BSTs, self-balancing AVLs, Red-Black Trees, and B-Trees with Buchheim aesthetic layout.</p>
+        </div>
+
+        <!-- Tree Data Structure Type Selector -->
+        <div class="flex items-center gap-1.5 bg-paper-100 p-1.5 rounded-2xl border border-paper-300">
+          <button onclick="switchTreeModel('bst')" id="model-tab-bst" class="model-tab-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-forest-700 shadow-sm transition-all">BST</button>
+          <button onclick="switchTreeModel('avl')" id="model-tab-avl" class="model-tab-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-paper-700 hover:text-paper-900 transition-all">AVL Tree</button>
+          <button onclick="switchTreeModel('rbt')" id="model-tab-rbt" class="model-tab-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-paper-700 hover:text-paper-900 transition-all">Red-Black</button>
+          <button onclick="switchTreeModel('btree')" id="model-tab-btree" class="model-tab-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-paper-700 hover:text-paper-900 transition-all">B-Tree (2-3)</button>
+        </div>
+      </div>
+
+      <!-- Rotation Banner Notification -->
+      <div id="rotation-alert-banner" class="hidden p-3 rounded-xl bg-ochre-100 border border-ochre-200 text-ochre-800 text-xs font-semibold flex items-center justify-between transition-all">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">🔄</span>
+          <span id="rotation-alert-text">Auto-Balance Triggered!</span>
+        </div>
+        <span class="font-mono text-[11px] bg-white px-2 py-0.5 rounded border border-ochre-200 text-ochre-700">Self-Balanced</span>
+      </div>
+
+      <!-- Toolbar & Actions -->
+      <div class="paper-card p-4 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <!-- Insert / Delete / Search Controls -->
+          <div class="flex flex-wrap items-center gap-2">
+            <input id="wb-input-val" type="number" placeholder="Key (e.g. 24)" class="w-32 px-3 py-1.5 text-xs rounded-xl bg-white border border-paper-300 text-paper-900 focus:outline-none focus:border-forest-500 font-mono shadow-inner" />
+            <button onclick="wbInsertAction()" class="px-3.5 py-1.5 rounded-xl bg-forest-600 hover:bg-forest-700 text-white text-xs font-bold shadow-sm transition-all">+ Insert</button>
+            <button onclick="wbSearchAction()" class="px-3.5 py-1.5 rounded-xl bg-white hover:bg-paper-50 border border-paper-300 text-paper-800 text-xs font-bold transition-all">🔍 Search</button>
+            <button onclick="wbDeleteSelectedAction()" class="px-3 py-1.5 rounded-xl bg-terracotta-50 hover:bg-terracotta-100 text-terracotta-600 border border-terracotta-200 text-xs font-bold transition-all">✂️️ Delete Selected</button>
+          </div>
+
+          <!-- Presets & Canvas Controls -->
+          <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-xs text-paper-600 font-medium">Presets:</span>
+            <button onclick="wbLoadPreset('ppt')" class="px-2.5 py-1 text-xs rounded-lg bg-white hover:bg-paper-50 border border-paper-300 font-medium text-paper-800">PPT Canonical</button>
+            <button onclick="wbLoadPreset('balanced')" class="px-2.5 py-1 text-xs rounded-lg bg-white hover:bg-paper-50 border border-paper-300 font-medium text-paper-800">Balanced</button>
+            <button onclick="wbLoadPreset('skewed')" class="px-2.5 py-1 text-xs rounded-lg bg-white hover:bg-paper-50 border border-paper-300 font-medium text-paper-800">Skewed</button>
+            <button onclick="wbLoadPreset('random')" class="px-2.5 py-1 text-xs rounded-lg bg-forest-50 hover:bg-forest-100 border border-forest-200 font-bold text-forest-700">🎲 Random</button>
+            <button onclick="wbClearTree()" class="px-2.5 py-1 text-xs rounded-lg bg-white hover:bg-paper-50 border border-paper-300 text-terracotta-600">Clear</button>
+          </div>
+        </div>
+
+        <!-- Canvas Area & Node Inspector Split -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <!-- Infinite SVG Canvas Viewport -->
+          <div class="lg:col-span-8 relative bg-[#FCFAF7] rounded-xl border border-paper-200 h-[480px] overflow-hidden flex items-center justify-center">
+            <svg id="wb-svg" class="w-full h-full infinite-canvas select-none"></svg>
+
+            <!-- Zoom & Pan HUD Overlay -->
+            <div class="absolute bottom-3 left-3 bg-white/90 backdrop-blur-sm border border-paper-200 rounded-xl px-2 py-1 shadow-sm flex items-center gap-1.5 text-xs text-paper-700">
+              <button onclick="canvasZoom(1.15)" title="Zoom In" class="p-1 hover:text-forest-700 font-bold px-1.5">+</button>
+              <button onclick="canvasZoom(0.85)" title="Zoom Out" class="p-1 hover:text-forest-700 font-bold px-1.5">&minus;</button>
+              <button onclick="canvasResetView()" title="Fit to View" class="px-2 py-0.5 text-[11px] rounded bg-paper-100 hover:bg-paper-200 font-mono">Fit View</button>
+              <span id="canvas-zoom-label" class="font-mono text-[10px] text-paper-600 pl-1">100%</span>
+            </div>
+
+            <!-- Empty Prompt -->
+            <div id="wb-empty-prompt" class="hidden absolute pointer-events-none text-center text-paper-600 text-xs">
+              <span class="text-3xl block mb-1">🌱</span>
+              <span class="font-bold text-forest-800">The tree plot is currently empty.</span>
+              <p class="text-[11px] text-paper-700 mt-0.5">Insert a node value above or choose an educational preset.</p>
+            </div>
+          </div>
+
+          <!-- Node Inspector HUD Card -->
+          <div class="lg:col-span-4 paper-card-warm p-4 flex flex-col justify-between space-y-4">
+            <div>
+              <div class="flex items-center justify-between pb-2 border-b border-paper-200">
+                <span class="text-xs font-mono font-bold uppercase text-paper-700">Node Inspector HUD</span>
+                <span id="node-inspector-badge" class="text-xs px-2 py-0.5 rounded font-mono font-bold bg-forest-100 text-forest-700">Active</span>
+              </div>
+
+              <!-- Selected Node Metrics -->
+              <div class="mt-3 space-y-2 text-xs">
+                <div class="flex justify-between py-1 border-b border-paper-200">
+                  <span class="text-paper-700">Selected Key:</span>
+                  <span id="hud-val" class="font-mono font-bold text-base text-forest-800">-</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-paper-200">
+                  <span class="text-paper-700">Parent Key:</span>
+                  <span id="hud-parent" class="font-mono font-bold text-ochre-600">-</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-paper-200">
+                  <span class="text-paper-700">Children:</span>
+                  <span id="hud-children" class="font-mono font-semibold text-paper-800">-</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-paper-200">
+                  <span class="text-paper-700">Degree:</span>
+                  <span id="hud-degree" class="font-mono font-bold text-forest-700">-</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-paper-200">
+                  <span class="text-paper-700">Depth / Level:</span>
+                  <span id="hud-depth" class="font-mono font-bold text-forest-700">-</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-paper-200">
+                  <span class="text-paper-700">Node Height:</span>
+                  <span id="hud-height" class="font-mono font-bold text-forest-700">-</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-paper-200">
+                  <span class="text-paper-700">Balance Factor (BF):</span>
+                  <span id="hud-bf" class="font-mono font-bold text-terracotta-600">-</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-paper-200">
+                  <span class="text-paper-700">Subtree Size:</span>
+                  <span id="hud-size" class="font-mono font-bold text-paper-800">-</span>
+                </div>
+                <div class="py-1">
+                  <span class="text-paper-700 block text-[11px]">Path from Root:</span>
+                  <p id="hud-path" class="font-mono text-xs text-forest-700 font-semibold break-words mt-0.5">-</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Model-Specific Legend -->
+            <div id="wb-model-legend" class="pt-2 border-t border-paper-200 text-[11px] text-paper-600 flex flex-wrap gap-2">
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-forest-600 inline-block"></span> Selected</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-ochre-500 inline-block"></span> Parent</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-notebookBlue inline-block"></span> Children</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         SECTION 2: TRAVERSAL LAB
+         ========================================== -->
+    <section id="view-traversal" class="view-section hidden space-y-6">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-paper-200">
+        <div>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-forest-800 flex items-center gap-2">
+            <span>🔄</span> Traversal Lab &amp; Execution Inspector
+          </h2>
+          <p class="text-xs sm:text-sm text-paper-700 mt-0.5">Step through Preorder, Inorder, Postorder, and Level-Order traversals with a live Call Stack and FIFO Queue inspector.</p>
+        </div>
+
+        <!-- Traversal Selector Cards -->
+        <div class="flex items-center gap-1 bg-paper-100 p-1.5 rounded-xl border border-paper-200">
+          <button onclick="setLabTraversal('preorder')" id="tab-trav-preorder" class="px-2.5 py-1 text-xs font-bold rounded-lg bg-white text-forest-700 shadow-sm">Preorder (VLR)</button>
+          <button onclick="setLabTraversal('inorder')" id="tab-trav-inorder" class="px-2.5 py-1 text-xs font-semibold rounded-lg text-paper-700">Inorder (LVR)</button>
+          <button onclick="setLabTraversal('postorder')" id="tab-trav-postorder" class="px-2.5 py-1 text-xs font-semibold rounded-lg text-paper-700">Postorder (LRV)</button>
+          <button onclick="setLabTraversal('levelorder')" id="tab-trav-levelorder" class="px-2.5 py-1 text-xs font-semibold rounded-lg text-paper-700">Level-Order (BFS)</button>
+        </div>
+      </div>
+
+      <!-- Traversal Viewport & Execution Stack Split -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- SVG Canvas & Breadcrumbs -->
+        <div class="lg:col-span-8 space-y-4">
+          <div class="paper-card p-4 space-y-3">
+            <!-- Transport Controls -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-paper-200">
+              <div class="flex items-center gap-2">
+                <button id="trav-play-pause-btn" onclick="toggleTravPlay()" class="px-3.5 py-1.5 rounded-xl bg-forest-600 hover:bg-forest-700 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5">
+                  <span id="trav-play-icon">▶</span> <span id="trav-play-label">Play</span>
+                </button>
+                <button onclick="travStepBackward()" class="px-3 py-1.5 rounded-xl bg-white hover:bg-paper-50 border border-paper-300 text-paper-800 text-xs font-semibold transition-all">⏮ Back</button>
+                <button onclick="travStepForward()" class="px-3 py-1.5 rounded-xl bg-white hover:bg-paper-50 border border-paper-300 text-paper-800 text-xs font-semibold transition-all">⏭ Step</button>
+                <button onclick="travReset()" class="px-3 py-1.5 rounded-xl bg-white hover:bg-paper-50 border border-paper-300 text-paper-700 text-xs font-semibold transition-all">↺ Reset</button>
+              </div>
+
+              <!-- Speed Slider -->
+              <div class="flex items-center gap-2 text-xs">
+                <span class="text-paper-700 font-medium">Speed:</span>
+                <input id="trav-speed-slider" type="range" min="200" max="2000" step="100" value="800" class="w-24 sm:w-32 accent-forest-600" onchange="updateTravSpeed()" />
+                <span id="trav-speed-label" class="font-mono text-[11px] text-paper-700 w-12 text-right">0.8s</span>
+              </div>
+            </div>
+
+            <!-- Traversal Canvas -->
+            <div class="w-full bg-[#FCFAF7] rounded-xl border border-paper-200 h-[380px] overflow-hidden flex items-center justify-center relative">
+              <svg id="trav-svg" class="w-full h-full select-none" viewBox="0 0 750 380"></svg>
+            </div>
+
+            <!-- Visited Breadcrumbs Trail -->
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="font-mono font-bold text-paper-700 uppercase">Visited Sequence:</span>
+                <span id="trav-counter-badge" class="font-mono font-bold text-forest-700">0 / 0</span>
+              </div>
+              <div id="trav-breadcrumbs-container" class="flex flex-wrap items-center gap-1.5 p-2.5 rounded-xl bg-paper-50 border border-paper-200 min-h-[46px]">
+                <span class="text-xs text-paper-600 font-mono italic">Start traversal to begin streaming output...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Call Stack / FIFO Queue Inspector -->
+        <div class="lg:col-span-4 space-y-4">
+          <div class="paper-card p-4 space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-paper-200">
+              <h3 id="stack-inspector-title" class="font-bold text-forest-800 text-sm flex items-center gap-2">
+                <span>📚</span> Recursive Call Stack
+              </h3>
+              <span id="stack-count-badge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-forest-100 text-forest-700">0 Frames</span>
+            </div>
+            
+            <p class="text-[11px] text-paper-600">Visualizes the execution state: functions awaiting left/right return or queue frames in BFS.</p>
+
+            <!-- Stack / Queue Frames -->
+            <div id="stack-frames-list" class="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+              <div class="p-3 rounded-xl border border-paper-200 bg-paper-50 text-xs text-paper-600 text-center font-mono">
+                Stack empty (Execution idle)
+              </div>
+            </div>
+          </div>
+
+          <!-- Professor's Traversal Explanation Card -->
+          <div class="sticky-note p-4 rounded-xl text-xs space-y-1">
+            <span class="font-hand text-base font-bold text-ochre-700 block">Algorithmic Rule Invariant:</span>
+            <p id="trav-rule-explanation" class="text-paper-800 leading-relaxed font-normal">
+              <strong>Preorder (VLR):</strong> Visit Vertex &rarr; Traverse Left Subtree &rarr; Traverse Right Subtree.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         SECTION 3: HEAP VIEW (MIN & MAX)
+         ========================================== -->
+    <section id="view-heap" class="view-section hidden space-y-6">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-paper-200">
+        <div>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-forest-800 flex items-center gap-2">
+            <span>⛰️</span> Binary Heap &amp; Array Memory View
+          </h2>
+          <p class="text-xs sm:text-sm text-paper-700 mt-0.5">Dual-representation visualizer syncing the Complete Binary Tree layout with its contiguous linear memory array.</p>
+        </div>
+
+        <!-- Min vs Max Heap Toggle -->
+        <div class="flex items-center gap-1.5 bg-paper-100 p-1.5 rounded-xl border border-paper-300">
+          <button onclick="setHeapType('min')" id="heap-type-min" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-forest-700 shadow-sm transition-all">Min-Heap</button>
+          <button onclick="setHeapType('max')" id="heap-type-max" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-paper-700 hover:text-paper-900 transition-all">Max-Heap</button>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="paper-card p-4 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <input id="heap-input-val" type="number" placeholder="Value (e.g. 17)" class="w-32 px-3 py-1.5 text-xs rounded-xl bg-white border border-paper-300 font-mono" />
+            <button onclick="heapInsertAction()" class="px-3.5 py-1.5 rounded-xl bg-forest-600 hover:bg-forest-700 text-white text-xs font-bold shadow-sm transition-all">+ Insert &amp; Heapify</button>
+            <button onclick="heapExtractAction()" class="px-3.5 py-1.5 rounded-xl bg-ochre-500 hover:bg-ochre-600 text-white text-xs font-bold shadow-sm transition-all">Extract Root</button>
+            <button onclick="heapRandomAction()" class="px-3 py-1.5 rounded-xl bg-forest-50 hover:bg-forest-100 border border-forest-200 text-forest-700 text-xs font-bold transition-all">🎲 Random Heap</button>
+          </div>
+          <button onclick="heapClearAction()" class="px-3 py-1 text-xs rounded-xl bg-white border border-paper-300 text-terracotta-600 font-medium">Clear Heap</button>
+        </div>
+
+        <!-- Dual Display: Tree on Left, Array on Right -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Complete Binary Tree Visualizer -->
+          <div class="lg:col-span-7 bg-[#FCFAF7] rounded-xl border border-paper-200 h-[380px] overflow-hidden flex items-center justify-center relative">
+            <svg id="heap-svg" class="w-full h-full select-none" viewBox="0 0 700 380"></svg>
+            <div class="absolute top-2 left-3 text-[11px] font-mono font-bold text-paper-600">Complete Binary Tree Representation</div>
+          </div>
+
+          <!-- Linear Memory Array Synchronization -->
+          <div class="lg:col-span-5 paper-card-warm p-4 flex flex-col justify-between space-y-4">
+            <div>
+              <div class="flex items-center justify-between pb-2 border-b border-paper-200">
+                <span class="text-xs font-mono font-bold uppercase text-paper-700">Contiguous Array in Memory</span>
+                <span id="heap-size-badge" class="font-mono text-xs font-bold text-forest-700">Size: 0</span>
+              </div>
+
+              <!-- Memory Math Formula Guide -->
+              <div class="mt-2 p-2.5 rounded-lg bg-paper-50 border border-paper-200 text-[11px] font-mono text-paper-700 space-y-1">
+                <div>Parent Index: <span class="text-ochre-600 font-bold">floor((i - 1) / 2)</span></div>
+                <div>Left Child: <span class="text-forest-600 font-bold">2i + 1</span> | Right: <span class="text-forest-600 font-bold">2i + 2</span></div>
+              </div>
+
+              <!-- Interactive Array Boxes -->
+              <div id="heap-array-container" class="mt-3 flex flex-wrap gap-1.5 max-h-[220px] overflow-y-auto p-1">
+                <span class="text-xs text-paper-600 font-mono italic">Heap array empty...</span>
+              </div>
+            </div>
+
+            <!-- Live Swap Explanation Box -->
+            <div class="p-3 rounded-xl bg-white border border-paper-200 text-xs">
+              <span class="font-bold text-forest-800 block text-[11px]">Heap State Note:</span>
+              <p id="heap-status-text" class="text-paper-700 text-[11px] mt-0.5">Heap satisfies complete tree and order invariants.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         SECTION 4: ARENA (INTERACTIVE CHALLENGES)
+         ========================================== -->
+    <section id="view-arena" class="view-section hidden space-y-6">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-paper-200">
+        <div>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-forest-800 flex items-center gap-2">
+            <span>🎯</span> The Traversal Practice Arena
+          </h2>
+          <p class="text-xs sm:text-sm text-paper-700 mt-0.5">Test your traversal skills with interactive node clicking, MCQ lecture challenges, and 60s Speed Runs.</p>
+        </div>
+
+        <!-- Mode Toggle -->
+        <div class="flex items-center gap-1.5 bg-paper-100 p-1.5 rounded-xl border border-paper-200">
+          <button id="arena-tab-interactive" onclick="setArenaMode('interactive')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-forest-700 shadow-sm transition-all">✋ Click-to-Traverse</button>
+          <button id="arena-tab-speed" onclick="setArenaMode('speed')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-paper-700 hover:text-paper-900 transition-all">⚡ 60s Speed Run</button>
+          <button id="arena-tab-mcq" onclick="setArenaMode('mcq')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-paper-700 hover:text-paper-900 transition-all">📝 Quiz (MCQ)</button>
+        </div>
+      </div>
+
+      <!-- Arena Mode 1: Click-to-Traverse -->
+      <div id="arena-interactive-panel" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-8 paper-card p-4 flex flex-col space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span id="arena-target-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-forest-100 text-forest-800 border border-forest-200">GOAL: INORDER (LVR)</span>
+              <span class="text-xs text-paper-700">Click the next correct node on the diagram!</span>
+            </div>
+            <button onclick="newArenaInteractivePuzzle()" class="px-3 py-1 text-xs rounded-xl bg-white border border-paper-300 font-semibold text-paper-800 shadow-sm">🎲 New Tree</button>
+          </div>
+
+          <!-- Interactive Tree Canvas -->
+          <div class="w-full bg-[#FCFAF7] rounded-xl border border-paper-200 h-[380px] overflow-hidden flex items-center justify-center">
+            <svg id="arena-interactive-svg" class="w-full h-full select-none" viewBox="0 0 750 380"></svg>
+          </div>
+
+          <!-- User Click Sequence Trail -->
+          <div class="p-3 bg-white rounded-xl border border-paper-200">
+            <div class="flex items-center justify-between text-xs mb-1.5">
+              <span class="text-paper-700 font-medium">Your Walked Sequence:</span>
+              <span id="arena-interactive-progress" class="font-mono font-bold text-forest-700">0 / 0</span>
+            </div>
+            <div id="arena-interactive-trail" class="flex flex-wrap items-center gap-1.5 min-h-[36px]">
+              <span class="text-xs text-paper-600 font-mono italic">Click the first node on the tree...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Feedback & Guidance Column -->
+        <div class="lg:col-span-4 paper-card p-5 flex flex-col justify-between space-y-4">
+          <div>
+            <div class="flex items-center justify-between pb-2 border-b border-paper-200">
+              <span class="text-xs font-mono font-bold uppercase text-paper-700">Live Feedback</span>
+              <span class="text-xs text-forest-700 font-mono font-bold">+150 XP Bounty</span>
+            </div>
+
+            <div class="mt-3 p-3 rounded-xl bg-paper-50 border border-paper-200 text-xs space-y-1">
+              <span class="font-bold text-forest-800 block">Current Traversal Invariant:</span>
+              <p id="arena-rule-reminder" class="text-paper-700 leading-relaxed">-</p>
+            </div>
+
+            <!-- Dynamic Error Feedback Card -->
+            <div id="arena-feedback-box" class="mt-4 p-4 rounded-xl border border-paper-200 bg-[#FCFAF7] text-xs">
+              <span class="font-bold text-paper-800 block mb-1">Status:</span>
+              <p id="arena-feedback-msg" class="text-paper-700">Select the first node on the tree.</p>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-paper-200 flex gap-2">
+            <button onclick="resetArenaInteractivePuzzle()" class="flex-1 py-2 text-xs font-semibold rounded-xl bg-white border border-paper-300 text-paper-800">↺ Retry</button>
+            <button onclick="newArenaInteractivePuzzle()" class="flex-1 py-2 text-xs font-bold rounded-xl bg-forest-600 hover:bg-forest-700 text-white shadow-sm">Next Puzzle &rarr;</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Arena Mode 2: Speed Run (60s) -->
+      <div id="arena-speed-panel" class="hidden paper-card p-6 max-w-2xl mx-auto space-y-5 text-center">
+        <div class="flex items-center justify-between pb-3 border-b border-paper-200">
+          <span class="font-bold text-forest-800 text-base">⚡ 60-Second Traversal Speed Sprint</span>
+          <span id="speed-timer" class="font-mono text-xl font-bold text-terracotta-500">60s</span>
+        </div>
+
+        <div id="speed-run-body" class="space-y-4">
+          <p class="text-xs text-paper-700">Rapidly identify the correct traversal sequence to accumulate streak multipliers and XP before time runs out!</p>
+          <button id="speed-start-btn" onclick="startSpeedRun()" class="px-6 py-3 rounded-xl bg-forest-600 hover:bg-forest-700 text-white text-xs font-bold shadow-md">Start 60s Sprint 🚀</button>
+        </div>
+
+        <!-- Active Speed Run Question Area -->
+        <div id="speed-active-arena" class="hidden space-y-4 text-left">
+          <div class="w-full bg-[#FCFAF7] rounded-xl border border-paper-200 h-[260px] overflow-hidden flex items-center justify-center">
+            <svg id="speed-svg" class="w-full h-full select-none" viewBox="0 0 600 260"></svg>
+          </div>
+          <h4 id="speed-prompt" class="font-bold text-forest-800 text-sm">Identify Inorder:</h4>
+          <div id="speed-options-container" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+        </div>
+      </div>
+
+      <!-- Arena Mode 3: MCQ Quiz -->
+      <div id="arena-mcq-panel" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-7 paper-card p-4 flex flex-col">
+          <div class="w-full bg-[#FCFAF7] rounded-xl border border-paper-200 h-[360px] overflow-hidden flex items-center justify-center">
+            <svg id="mcq-svg" class="w-full h-full select-none" viewBox="0 0 700 360"></svg>
+          </div>
+        </div>
+        <div class="lg:col-span-5 paper-card p-5 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between pb-2 border-b border-paper-200">
+              <span id="mcq-badge-type" class="text-xs font-bold px-2 py-0.5 rounded bg-forest-100 text-forest-800 font-mono">PREORDER</span>
+              <span class="text-xs text-ochre-600 font-mono font-bold">+100 XP</span>
+            </div>
+            <h3 id="mcq-question-heading" class="text-base font-bold text-forest-800 mt-3">What is the correct traversal sequence?</h3>
+            <div id="mcq-options-container" class="mt-4 space-y-2"></div>
+          </div>
+          <div id="mcq-feedback-box" class="hidden mt-4 p-3 rounded-xl border text-xs"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         SECTION 5: VISUAL PRIMER (THEORY REFERENCE)
+         ========================================== -->
+    <section id="view-primer" class="view-section hidden space-y-6">
+      <div class="pb-3 border-b border-paper-200">
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-forest-800 flex items-center gap-2">
+          <span>📖</span> Botanical Visual Primer &amp; Core Invariants
+        </h2>
+        <p class="text-xs sm:text-sm text-paper-700 mt-0.5">Quick reference covering essential tree properties following academic university standards.</p>
+      </div>
+
+      <!-- Theory Cards Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+        <!-- Card 1 -->
+        <div class="paper-card p-5 space-y-2">
+          <span class="text-xs font-mono font-bold text-forest-600 uppercase">Invariant 01</span>
+          <h3 class="text-base font-bold text-forest-800">Tree vs Graph</h3>
+          <p class="text-xs text-paper-700 leading-relaxed">
+            A <strong>Tree</strong> is a connected, acyclic directed graph with a unique root node. In an N-node tree, there are always exactly <strong>(N - 1) edges</strong>. No cycles are permitted.
+          </p>
+          <div class="mt-2 p-2 rounded bg-paper-50 border border-paper-200 font-mono text-[11px] text-paper-800">
+            Edges = N - 1 | Cycles = 0
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="paper-card p-5 space-y-2">
+          <span class="text-xs font-mono font-bold text-terracotta-500 uppercase">Invariant 02</span>
+          <h3 class="text-base font-bold text-forest-800">Height vs Depth</h3>
+          <p class="text-xs text-paper-700 leading-relaxed">
+            <strong>Depth:</strong> Number of edges descending downward from the Root to the node (Root depth = 0).<br/>
+            <strong>Height:</strong> Number of edges on the longest downward path from the node to a leaf (Leaf height = 0). Height of tree = Height of root.
+          </p>
+          <div class="mt-2 p-2 rounded bg-paper-50 border border-paper-200 font-mono text-[11px] text-paper-800">
+            Depth: Root &rarr; Node | Height: Node &rarr; Leaf
+          </div>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="paper-card p-5 space-y-2">
+          <span class="text-xs font-mono font-bold text-ochre-600 uppercase">Invariant 03</span>
+          <h3 class="text-base font-bold text-forest-800">Strictly Binary (Full) Tree</h3>
+          <p class="text-xs text-paper-700 leading-relaxed">
+            Every internal (non-leaf) node has <em>both</em> a left and right child. Out-degree is always either <strong>0 or 2</strong>, never 1!
+          </p>
+          <div class="mt-2 p-2 rounded bg-paper-50 border border-paper-200 font-mono text-[11px] text-paper-800">
+            Degree(node) &isin; {0, 2}
+          </div>
+        </div>
+
+        <!-- Card 4 -->
+        <div class="paper-card p-5 space-y-2">
+          <span class="text-xs font-mono font-bold text-forest-600 uppercase">Invariant 04</span>
+          <h3 class="text-base font-bold text-forest-800">Complete Binary Tree</h3>
+          <p class="text-xs text-paper-700 leading-relaxed">
+            Every level except possibly the last is completely filled, and all nodes in the last level are as far left as possible with zero gaps.
+          </p>
+          <div class="mt-2 p-2 rounded bg-paper-50 border border-paper-200 font-mono text-[11px] text-paper-800">
+            No empty holes before the last element!
+          </div>
+        </div>
+
+        <!-- Card 5 -->
+        <div class="paper-card p-5 space-y-2">
+          <span class="text-xs font-mono font-bold text-terracotta-500 uppercase">Invariant 05</span>
+          <h3 class="text-base font-bold text-forest-800">AVL Balance Factor</h3>
+          <p class="text-xs text-paper-700 leading-relaxed">
+            For every node in an AVL tree, the Balance Factor is defined as: <br/>
+            <strong>BF = Height(Left Subtree) - Height(Right Subtree)</strong>.<br/>
+            Valid AVL invariants require $BF \in \{-1, 0, +1\}$.
+          </p>
+          <div class="mt-2 p-2 rounded bg-paper-50 border border-paper-200 font-mono text-[11px] text-paper-800">
+            |BF| &le; 1 (LL, RR, LR, RL rebalancing)
+          </div>
+        </div>
+
+        <!-- Card 6 -->
+        <div class="paper-card p-5 space-y-2">
+          <span class="text-xs font-mono font-bold text-ochre-600 uppercase">Invariant 06</span>
+          <h3 class="text-base font-bold text-forest-800">Red-Black Invariants</h3>
+          <p class="text-xs text-paper-700 leading-relaxed">
+            1. Every node is Red or Black.<br/>
+            2. Root is Black.<br/>
+            3. Red nodes cannot have Red children (No Red-Red violations).<br/>
+            4. Every path from a node to its descendant leaves contains the same number of Black nodes.
+          </p>
+          <div class="mt-2 p-2 rounded bg-paper-50 border border-paper-200 font-mono text-[11px] text-paper-800">
+            Uniform Black-Height on all paths
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-auto border-t border-paper-200 bg-[#FAF8F5] py-6 text-center text-xs text-paper-700">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <span class="font-bold text-forest-700">TreeLab</span> &bull; 
+        <span>Handcrafted Algorithm &amp; Data Structure Laboratory</span>
+      </div>
+      <div class="font-mono text-[11px] text-paper-600">
+        Pure Vanilla HTML5 &bull; CSS3 &bull; JavaScript
+      </div>
+    </div>
+  </footer>
+
+  <!-- ========================================================
+       JAVASCRIPT ARCHITECTURE & ALGORITHM ENGINES
+       ======================================================== -->
+  <script>
+    /* ========================================================
+       1. WEB AUDIO API SYNTHESIZER
+       ======================================================== */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playTone(freq, type = 'sine', duration = 0.15, vol = 0.05) {
+        if (!this.enabled) return;
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch (e) {}
+      }
+      click() { this.playTone(480, 'sine', 0.08, 0.03); }
+      step() { this.playTone(540, 'sine', 0.12, 0.04); }
+      success() {
+        this.playTone(523.25, 'sine', 0.14, 0.06);
+        setTimeout(() => this.playTone(659.25, 'sine', 0.18, 0.06), 90);
+        setTimeout(() => this.playTone(783.99, 'sine', 0.22, 0.06), 180);
+      }
+      error() {
+        this.playTone(261.63, 'triangle', 0.18, 0.07);
+        setTimeout(() => this.playTone(220.00, 'triangle', 0.24, 0.07), 110);
+      }
+      rotate() {
+        this.playTone(392, 'square', 0.1, 0.03);
+        setTimeout(() => this.playTone(493.88, 'square', 0.14, 0.03), 80);
+      }
+    }
+    const sound = new SoundEngine();
+
+    function toggleAudio() {
+      sound.enabled = !sound.enabled;
+      document.getElementById('sound-btn').textContent = sound.enabled ? '🔔' : '🔕';
+      showToast(sound.enabled ? 'Audio Chimes Enabled' : 'Audio Muted');
+    }
+
+    /* ========================================================
+       2. GAMIFICATION & XP LEVEL PROGRESSION
+       ======================================================== */
+    const GAME_STATE = {
+      xp: 0,
+      level: 1,
+      streak: 0,
+      multiplier: 1.0,
+      titles: ['Seedling', 'Sprout', 'Sapling', 'Branch Master', 'Forest Elder', 'Tree Archmage']
+    };
+
+    function addXP(basePoints) {
+      const earned = Math.round(basePoints * GAME_STATE.multiplier);
+      GAME_STATE.xp += earned;
+      const targetXP = GAME_STATE.level * 200;
+      if (GAME_STATE.xp >= targetXP) {
+        GAME_STATE.level++;
+        triggerLevelUp();
+      } else {
+        showToast(`+${earned} XP (${GAME_STATE.multiplier}x multiplier)!`, 'success');
+      }
+      updateGameHUD();
+      saveProgress();
+    }
+
+    function addStreak() {
+      GAME_STATE.streak++;
+      if (GAME_STATE.streak >= 8) GAME_STATE.multiplier = 2.5;
+      else if (GAME_STATE.streak >= 5) GAME_STATE.multiplier = 2.0;
+      else if (GAME_STATE.streak >= 3) GAME_STATE.multiplier = 1.5;
+      else GAME_STATE.multiplier = 1.0;
+      updateGameHUD();
+    }
+
+    function breakStreak() {
+      GAME_STATE.streak = 0;
+      GAME_STATE.multiplier = 1.0;
+      updateGameHUD();
+    }
+
+    function updateGameHUD() {
+      const curLvl = GAME_STATE.level;
+      const targetXP = curLvl * 200;
+      const prevXP = (curLvl - 1) * 200;
+      const progress = Math.max(0, GAME_STATE.xp - prevXP);
+      const span = targetXP - prevXP;
+      const pct = Math.min(100, Math.floor((progress / span) * 100));
+
+      const title = GAME_STATE.titles[Math.min(curLvl - 1, GAME_STATE.titles.length - 1)];
+      const rankBadge = document.getElementById('header-rank-badge');
+      const streakBadge = document.getElementById('header-streak-badge');
+      const xpText = document.getElementById('header-xp-text');
+      const xpBar = document.getElementById('header-xp-bar');
+
+      if (rankBadge) rankBadge.textContent = `LVL ${curLvl} ${title}`;
+      if (streakBadge) streakBadge.textContent = `🔥 ${GAME_STATE.streak} (${GAME_STATE.multiplier}x)`;
+      if (xpText) xpText.textContent = `${GAME_STATE.xp} / ${targetXP} XP`;
+      if (xpBar) xpBar.style.width = `${pct}%`;
+    }
+
+    function triggerLevelUp() {
+      sound.success();
+      showToast(`🎉 Level Up! You attained LVL ${GAME_STATE.level}!`, 'success');
+      launchConfetti();
+    }
+
+    function saveProgress() {
+      try {
+        localStorage.setItem('treelab_state_v3', JSON.stringify({
+          xp: GAME_STATE.xp,
+          level: GAME_STATE.level,
+          streak: GAME_STATE.streak
+        }));
+      } catch (e) {}
+    }
+
+    function loadProgress() {
+      try {
+        const saved = localStorage.getItem('treelab_state_v3');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          GAME_STATE.xp = parsed.xp || 0;
+          GAME_STATE.level = parsed.level || 1;
+          GAME_STATE.streak = parsed.streak || 0;
+        }
+      } catch (e) {}
+      updateGameHUD();
+    }
+
+    /* Confetti Particle Engine */
+    function launchConfetti() {
+      const canvas = document.getElementById('confetti-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const particles = [];
+      const colors = ['#2D6A4F', '#C2410C', '#D97706', '#2563EB', '#10B981'];
+      for (let i = 0; i < 90; i++) {
+        particles.push({
+          x: canvas.width / 2,
+          y: canvas.height / 2,
+          vx: (Math.random() - 0.5) * 14,
+          vy: (Math.random() - 0.7) * 16,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          size: Math.random() * 6 + 4,
+          life: 1
+        });
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        let active = false;
+        particles.forEach(p => {
+          if (p.life > 0) {
+            active = true;
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.35;
+            p.life -= 0.018;
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = Math.max(0, p.life);
+            ctx.fillRect(p.x, p.y, p.size, p.size);
+          }
+        });
+        if (active) requestAnimationFrame(draw);
+        else ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      requestAnimationFrame(draw);
+    }
+
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const el = document.createElement('div');
+      el.className = `px-4 py-2.5 rounded-xl border text-xs font-semibold shadow-md transition-all duration-300 transform translate-y-2 opacity-0 flex items-center gap-2 ${
+        type === 'success' ? 'bg-forest-50 border-forest-500 text-forest-800' :
+        type === 'error' ? 'bg-terracotta-50 border-terracotta-500 text-terracotta-600' :
+        'bg-white border-paper-300 text-paper-900'
+      }`;
+      el.innerHTML = `<span>${type === 'success' ? '🌱' : type === 'error' ? '🍂' : '💡'}</span> ${msg}`;
+      container.appendChild(el);
+      requestAnimationFrame(() => el.classList.remove('translate-y-2', 'opacity-0'));
+      setTimeout(() => {
+        el.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => el.remove(), 300);
+      }, 3000);
+    }
+
+    /* ========================================================
+       3. BUCHHEIM / REINGOLD-TILFORD TREE LAYOUT ALGORITHM
+       ======================================================== */
+
+    /**
+     * Complete Buchheim tree layout algorithm:
+     * Guarantees isomorphic subtrees look identical, left/right order preserved,
+     * zero overlapping edges, centered parent nodes above children.
+     */
+    class LayoutNode {
+      constructor(treeNode, depth = 0, number = 1) {
+        this.treeNode = treeNode;
+        this.depth = depth;
+        this.number = number;
+        this.x = 0;
+        this.y = depth * 75 + 45;
+        this.mod = 0;
+        this.thread = null;
+        this.ancestor = this;
+        this.change = 0;
+        this.shift = 0;
+        this.prelim = 0;
+        this.children = [];
+
+        // Attach left & right children if binary
+        if (treeNode.left) this.children.push(new LayoutNode(treeNode.left, depth + 1, 1));
+        if (treeNode.right) this.children.push(new LayoutNode(treeNode.right, depth + 1, this.children.length + 1));
+        // Support B-Tree multi-child branches
+        if (treeNode.multiChildren && treeNode.multiChildren.length > 0) {
+          this.children = treeNode.multiChildren.map((c, idx) => new LayoutNode(c, depth + 1, idx + 1));
+        }
+      }
+
+      leftSibling() {
+        if (!this.parent) return null;
+        const idx = this.parent.children.indexOf(this);
+        return idx > 0 ? this.parent.children[idx - 1] : null;
+      }
+      leftmostSibling() {
+        if (!this.parent) return null;
+        return this.parent.children[0] !== this ? this.parent.children[0] : null;
+      }
+    }
+
+    function runBuchheimLayout(rootTreeNode, siblingDistance = 58, subtreeDistance = 75) {
+      if (!rootTreeNode) return null;
+      const root = new LayoutNode(rootTreeNode, 0, 1);
+      root.parent = null;
+
+      function linkParents(n) {
+        n.children.forEach(c => {
+          c.parent = n;
+          linkParents(c);
+        });
+      }
+      linkParents(root);
+
+      firstWalk(root, siblingDistance, subtreeDistance);
+      secondWalk(root, -root.prelim, 0);
+
+      // Write computed coordinates back to treeNode instances
+      function syncCoords(n) {
+        n.treeNode.x = n.x;
+        n.treeNode.y = n.y;
+        n.children.forEach(syncCoords);
+      }
+      syncCoords(root);
+      return root;
+    }
+
+    function firstWalk(v, siblingDist, subtreeDist) {
+      if (v.children.length === 0) {
+        if (v.leftSibling()) {
+          v.prelim = v.leftSibling().prelim + siblingDist;
+        } else {
+          v.prelim = 0;
+        }
+      } else {
+        let defaultAncestor = v.children[0];
+        v.children.forEach(w => {
+          firstWalk(w, siblingDist, subtreeDist);
+          defaultAncestor = apportion(w, defaultAncestor, siblingDist, subtreeDist);
+        });
+        executeShifts(v);
+        const midpoint = (v.children[0].prelim + v.children[v.children.length - 1].prelim) / 2;
+        if (v.leftSibling()) {
+          v.prelim = v.leftSibling().prelim + siblingDist;
+          v.mod = v.prelim - midpoint;
+        } else {
+          v.prelim = midpoint;
+        }
+      }
+    }
+
+    function apportion(v, defaultAncestor, siblingDist, subtreeDist) {
+      const w = v.leftSibling();
+      if (w) {
+        let vInnerRight = v;
+        let vOuterRight = v;
+        let vInnerLeft = w;
+        let vOuterLeft = v.leftmostSibling();
+
+        let sInnerRight = vInnerRight.mod;
+        let sOuterRight = vOuterRight.mod;
+        let sInnerLeft = vInnerLeft.mod;
+        let sOuterLeft = vOuterLeft.mod;
+
+        while (vInnerLeft.nextRight() && vInnerRight.nextLeft()) {
+          vInnerLeft = vInnerLeft.nextRight();
+          vInnerRight = vInnerRight.nextLeft();
+          vOuterLeft = vOuterLeft.nextLeft();
+          vOuterRight = vOuterRight.nextRight();
+
+          vOuterRight.ancestor = v;
+          const shift = (vInnerLeft.prelim + sInnerLeft) - (vInnerRight.prelim + sInnerRight) + subtreeDist;
+          if (shift > 0) {
+            moveSubtree(ancestor(vInnerLeft, v, defaultAncestor), v, shift);
+            sInnerRight += shift;
+            sOuterRight += shift;
+          }
+          sInnerLeft += vInnerLeft.mod;
+          sInnerRight += vInnerRight.mod;
+          sOuterLeft += vOuterLeft.mod;
+          sOuterRight += vOuterRight.mod;
+        }
+        if (vInnerLeft.nextRight() && !vOuterRight.nextRight()) {
+          vOuterRight.thread = vInnerLeft.nextRight();
+          vOuterRight.mod += sInnerLeft - sOuterRight;
+        }
+        if (vInnerRight.nextLeft() && !vOuterLeft.nextLeft()) {
+          vOuterLeft.thread = vInnerRight.nextLeft();
+          vOuterLeft.mod += sInnerRight - sOuterLeft;
+          defaultAncestor = v;
+        }
+      }
+      return defaultAncestor;
+    }
+
+    function moveSubtree(wMinus, wPlus, shift) {
+      const subtrees = wPlus.number - wMinus.number;
+      wPlus.change -= shift / subtrees;
+      wPlus.shift += shift;
+      wMinus.change += shift / subtrees;
+      wPlus.prelim += shift;
+      wPlus.mod += shift;
+    }
+
+    function executeShifts(v) {
+      let shift = 0;
+      let change = 0;
+      for (let i = v.children.length - 1; i >= 0; i--) {
+        const w = v.children[i];
+        w.prelim += shift;
+        w.mod += shift;
+        change += w.change;
+        shift += w.shift + change;
+      }
+    }
+
+    function ancestor(vInnerLeft, v, defaultAncestor) {
+      if (v.parent.children.includes(vInnerLeft.ancestor)) {
+        return vInnerLeft.ancestor;
+      }
+      return defaultAncestor;
+    }
+
+    function secondWalk(v, m, depth) {
+      v.x = v.prelim + m;
+      v.y = depth * 75 + 45;
+      v.children.forEach(w => secondWalk(w, m + v.mod, depth + 1));
+    }
+
+    LayoutNode.prototype.nextLeft = function() {
+      return this.children.length > 0 ? this.children[0] : this.thread;
+    };
+    LayoutNode.prototype.nextRight = function() {
+      return this.children.length > 0 ? this.children[this.children.length - 1] : this.thread;
+    };
+
+    /* ========================================================
+       4. DATA STRUCTURE ENGINES (BST, AVL, RED-BLACK, B-TREE)
+       ======================================================== */
+
+    let nextNodeId = 1;
+
+    class BaseTreeNode {
+      constructor(val) {
+        this.id = nextNodeId++;
+        this.value = parseInt(val, 10);
+        this.left = null;
+        this.right = null;
+        this.height = 1;
+        this.color = 'RED'; // For Red-Black
+        this.x = 0;
+        this.y = 0;
+      }
+    }
+
+    /* --- BST Class --- */
+    class BinarySearchTree {
+      constructor() { this.root = null; }
+
+      insert(val) {
+        const v = parseInt(val, 10);
+        if (isNaN(v)) return null;
+        const newNode = new BaseTreeNode(v);
+        if (!this.root) { this.root = newNode; return newNode; }
+
+        let curr = this.root;
+        while (true) {
+          if (v < curr.value) {
+            if (!curr.left) { curr.left = newNode; return newNode; }
+            curr = curr.left;
+          } else {
+            if (!curr.right) { curr.right = newNode; return newNode; }
+            curr = curr.right;
+          }
+        }
+      }
+
+      delete(id) {
+        const delNode = (node, targetId) => {
+          if (!node) return null;
+          if (node.id === targetId) {
+            if (!node.left && !node.right) return null;
+            if (!node.left) return node.right;
+            if (!node.right) return node.left;
+            let succ = node.right;
+            while (succ.left) succ = succ.left;
+            node.value = succ.value;
+            node.right = delNode(node.right, succ.id);
+            return node;
+          }
+          node.left = delNode(node.left, targetId);
+          node.right = delNode(node.right, targetId);
+          return node;
+        };
+        this.root = delNode(this.root, id);
+      }
+
+      find(val, node = this.root, path = []) {
+        if (!node) return null;
+        path.push(node);
+        if (node.value === val) return { node, path };
+        if (val < node.value) return this.find(val, node.left, path);
+        return this.find(val, node.right, path);
+      }
+
+      findById(id, node = this.root) {
+        if (!node) return null;
+        if (node.id === id) return node;
+        return this.findById(id, node.left) || this.findById(id, node.right);
+      }
+
+      getParent(id, node = this.root, parent = null) {
+        if (!node) return null;
+        if (node.id === id) return parent;
+        return this.getParent(id, node.left, node) || this.getParent(id, node.right, node);
+      }
+
+      getAncestors(id) {
+        const ancestors = [];
+        let curr = this.getParent(id);
+        while (curr) {
+          ancestors.push(curr);
+          curr = this.getParent(curr.id);
+        }
+        return ancestors;
+      }
+
+      getNodeHeight(node) {
+        if (!node) return 0;
+        return 1 + Math.max(this.getNodeHeight(node.left), this.getNodeHeight(node.right));
+      }
+
+      getBalanceFactor(node) {
+        if (!node) return 0;
+        return this.getNodeHeight(node.left) - this.getNodeHeight(node.right);
+      }
+
+      getSubtreeSize(node) {
+        if (!node) return 0;
+        return 1 + this.getSubtreeSize(node.left) + this.getSubtreeSize(node.right);
+      }
+
+      getAllNodes(node = this.root, arr = []) {
+        if (!node) return arr;
+        arr.push(node);
+        this.getAllNodes(node.left, arr);
+        this.getAllNodes(node.right, arr);
+        return arr;
+      }
+    }
+
+    /* --- AVL Tree Class --- */
+    class AVLTree extends BinarySearchTree {
+      getHeight(n) { return n ? n.height : 0; }
+      getBF(n) { return n ? this.getHeight(n.left) - this.getHeight(n.right) : 0; }
+      updateHeight(n) { if (n) n.height = 1 + Math.max(this.getHeight(n.left), this.getHeight(n.right)); }
+
+      rotateRight(y) {
+        const x = y.left;
+        const T2 = x.right;
+        x.right = y;
+        y.left = T2;
+        this.updateHeight(y);
+        this.updateHeight(x);
+        triggerRotationBanner('Right Rotation (LL Rebalance)');
+        sound.rotate();
+        return x;
+      }
+
+      rotateLeft(x) {
+        const y = x.right;
+        const T2 = y.left;
+        y.left = x;
+        x.right = T2;
+        this.updateHeight(x);
+        this.updateHeight(y);
+        triggerRotationBanner('Left Rotation (RR Rebalance)');
+        sound.rotate();
+        return y;
+      }
+
+      insert(val) {
+        const v = parseInt(val, 10);
+        if (isNaN(v)) return null;
+
+        const insertHelper = (node, key) => {
+          if (!node) return new BaseTreeNode(key);
+          if (key < node.value) node.left = insertHelper(node.left, key);
+          else node.right = insertHelper(node.right, key);
+
+          this.updateHeight(node);
+          const bf = this.getBF(node);
+
+          // LL Case
+          if (bf > 1 && key < node.left.value) return this.rotateRight(node);
+          // RR Case
+          if (bf < -1 && key >= node.right.value) return this.rotateLeft(node);
+          // LR Case
+          if (bf > 1 && key >= node.left.value) {
+            triggerRotationBanner('LR Rotation (Left-Right Double)');
+            node.left = this.rotateLeft(node.left);
+            return this.rotateRight(node);
+          }
+          // RL Case
+          if (bf < -1 && key < node.right.value) {
+            triggerRotationBanner('RL Rotation (Right-Left Double)');
+            node.right = this.rotateRight(node.right);
+            return this.rotateLeft(node);
+          }
+          return node;
+        };
+
+        this.root = insertHelper(this.root, v);
+        return this.root;
+      }
+    }
+
+    function triggerRotationBanner(txt) {
+      const banner = document.getElementById('rotation-alert-banner');
+      const label = document.getElementById('rotation-alert-text');
+      if (banner && label) {
+        label.textContent = txt;
+        banner.classList.remove('hidden');
+        setTimeout(() => banner.classList.add('hidden'), 3500);
+      }
+    }
+
+    /* --- Red-Black Tree Class --- */
+    class RedBlackTree extends BinarySearchTree {
+      constructor() {
+        super();
+        this.root = null;
+      }
+
+      insert(val) {
+        const v = parseInt(val, 10);
+        if (isNaN(v)) return null;
+        let node = new BaseTreeNode(v);
+        node.color = 'RED';
+
+        if (!this.root) {
+          node.color = 'BLACK';
+          this.root = node;
+          return node;
+        }
+
+        let curr = this.root;
+        let parent = null;
+        while (curr) {
+          parent = curr;
+          if (node.value < curr.value) curr = curr.left;
+          else curr = curr.right;
+        }
+
+        if (node.value < parent.value) parent.left = node;
+        else parent.right = node;
+
+        this.fixViolation(node);
+        return node;
+      }
+
+      fixViolation(node) {
+        let parent = null;
+        let grandparent = null;
+
+        while (node !== this.root && node.color === 'RED' && this.getParent(node.id) && this.getParent(node.id).color === 'RED') {
+          parent = this.getParent(node.id);
+          grandparent = this.getParent(parent.id);
+          if (!grandparent) break;
+
+          // Parent is Left Child of Grandparent
+          if (parent === grandparent.left) {
+            const uncle = grandparent.right;
+            if (uncle && uncle.color === 'RED') {
+              // Case 1: Uncle is Red -> Recoloring
+              grandparent.color = 'RED';
+              parent.color = 'BLACK';
+              uncle.color = 'BLACK';
+              node = grandparent;
+            } else {
+              // Case 2: Node is Right child -> Left Rotate Parent
+              if (node === parent.right) {
+                this.rotateLeftRB(parent);
+                node = parent;
+                parent = this.getParent(node.id);
+              }
+              // Case 3: Node is Left child -> Right Rotate Grandparent
+              this.rotateRightRB(grandparent);
+              parent.color = 'BLACK';
+              grandparent.color = 'RED';
+              node = parent;
+            }
+          } else {
+            // Parent is Right Child of Grandparent
+            const uncle = grandparent.left;
+            if (uncle && uncle.color === 'RED') {
+              grandparent.color = 'RED';
+              parent.color = 'BLACK';
+              uncle.color = 'BLACK';
+              node = grandparent;
+            } else {
+              if (node === parent.left) {
+                this.rotateRightRB(parent);
+                node = parent;
+                parent = this.getParent(node.id);
+              }
+              this.rotateLeftRB(grandparent);
+              parent.color = 'BLACK';
+              grandparent.color = 'RED';
+              node = parent;
+            }
+          }
+        }
+        this.root.color = 'BLACK';
+      }
+
+      rotateLeftRB(x) {
+        const y = x.right;
+        if (!y) return;
+        x.right = y.left;
+        const p = this.getParent(x.id);
+        if (!p) this.root = y;
+        else if (x === p.left) p.left = y;
+        else p.right = y;
+        y.left = x;
+      }
+
+      rotateRightRB(y) {
+        const x = y.left;
+        if (!x) return;
+        y.left = x.right;
+        const p = this.getParent(y.id);
+        if (!p) this.root = x;
+        else if (y === p.left) p.left = x;
+        else p.right = x;
+        x.right = y;
+      }
+    }
+
+    /* --- B-Tree (Order 3 / 2-3 Tree) Class --- */
+    class BTreeNode {
+      constructor(isLeaf = true) {
+        this.id = nextNodeId++;
+        this.keys = [];
+        this.multiChildren = [];
+        this.isLeaf = isLeaf;
+        this.x = 0;
+        this.y = 0;
+      }
+      get value() { return this.keys.join(' | '); }
+    }
+
+    class BTree {
+      constructor() {
+        this.root = new BTreeNode(true);
+      }
+
+      insert(key) {
+        const k = parseInt(key, 10);
+        if (isNaN(k)) return;
+        const r = this.root;
+        if (r.keys.length === 2) {
+          const s = new BTreeNode(false);
+          this.root = s;
+          s.multiChildren.push(r);
+          this.splitChild(s, 0, r);
+          this.insertNonFull(s, k);
+        } else {
+          this.insertNonFull(r, k);
+        }
+      }
+
+      insertNonFull(node, k) {
+        let i = node.keys.length - 1;
+        if (node.isLeaf) {
+          node.keys.push(k);
+          node.keys.sort((a, b) => a - b);
+        } else {
+          while (i >= 0 && k < node.keys[i]) i--;
+          i++;
+          if (node.multiChildren[i].keys.length === 2) {
+            this.splitChild(node, i, node.multiChildren[i]);
+            if (k > node.keys[i]) i++;
+          }
+          this.insertNonFull(node.multiChildren[i], k);
+        }
+      }
+
+      splitChild(parent, i, child) {
+        const z = new BTreeNode(child.isLeaf);
+        z.keys.push(child.keys[1]);
+        if (!child.isLeaf) {
+          z.multiChildren.push(child.multiChildren[1]);
+          child.multiChildren.splice(1, 1);
+        }
+        const median = child.keys[0];
+        child.keys = [child.keys[0]]; // retain lower
+        child.keys.splice(0, 1); // child keeps median
+        parent.multiChildren.splice(i + 1, 0, z);
+        parent.keys.splice(i, 0, median);
+      }
+
+      getAllNodes(n = this.root, arr = []) {
+        if (!n) return arr;
+        arr.push(n);
+        n.multiChildren.forEach(c => this.getAllNodes(c, arr));
+        return arr;
+      }
+    }
+
+    /* ========================================================
+       5. INFINITE PAN & ZOOM SVG VIEWPORT
+       ======================================================== */
+    const canvasState = {
+      svg: null,
+      viewG: null,
+      scale: 1,
+      panX: 0,
+      panY: 0,
+      isDragging: false,
+      startX: 0,
+      startY: 0
+    };
+
+    function initCanvasInteractions(svgEl) {
+      canvasState.svg = svgEl;
+      let g = svgEl.querySelector('#viewport-group');
+      if (!g) {
+        g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('id', 'viewport-group');
+        svgEl.appendChild(g);
+      }
+      canvasState.viewG = g;
+
+      // Mouse Drag Panning
+      svgEl.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.node-group')) return;
+        canvasState.isDragging = true;
+        canvasState.startX = e.clientX - canvasState.panX;
+        canvasState.startY = e.clientY - canvasState.panY;
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!canvasState.isDragging) return;
+        canvasState.panX = e.clientX - canvasState.startX;
+        canvasState.panY = e.clientY - canvasState.startY;
+        applyCanvasTransform();
+      });
+
+      window.addEventListener('mouseup', () => { canvasState.isDragging = false; });
+
+      // Wheel Zooming at Cursor Focal Point
+      svgEl.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const factor = e.deltaY < 0 ? 1.12 : 0.89;
+        const rect = svgEl.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        canvasState.panX = mouseX - (mouseX - canvasState.panX) * factor;
+        canvasState.panY = mouseY - (mouseY - canvasState.panY) * factor;
+        canvasState.scale *= factor;
+        canvasState.scale = Math.max(0.2, Math.min(3.5, canvasState.scale));
+        applyCanvasTransform();
+      }, { passive: false });
+
+      // Touch Pinch Panning
+      let lastDist = 0;
+      svgEl.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          canvasState.startX = e.touches[0].clientX - canvasState.panX;
+          canvasState.startY = e.touches[0].clientY - canvasState.panY;
+        } else if (e.touches.length === 2) {
+          lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        }
+      });
+      svgEl.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1) {
+          canvasState.panX = e.touches[0].clientX - canvasState.startX;
+          canvasState.panY = e.touches[0].clientY - canvasState.startY;
+          applyCanvasTransform();
+        } else if (e.touches.length === 2) {
+          const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+          if (lastDist > 0) {
+            const factor = dist / lastDist;
+            canvasState.scale = Math.max(0.2, Math.min(3.5, canvasState.scale * factor));
+            applyCanvasTransform();
+          }
+          lastDist = dist;
+        }
+      });
+    }
+
+    function applyCanvasTransform() {
+      if (!canvasState.viewG) return;
+      canvasState.viewG.setAttribute('transform', `matrix(${canvasState.scale} 0 0 ${canvasState.scale} ${canvasState.panX} ${canvasState.panY})`);
+      const lbl = document.getElementById('canvas-zoom-label');
+      if (lbl) lbl.textContent = `${Math.round(canvasState.scale * 100)}%`;
+    }
+
+    function canvasZoom(delta) {
+      canvasState.scale *= delta;
+      canvasState.scale = Math.max(0.2, Math.min(3.5, canvasState.scale));
+      applyCanvasTransform();
+    }
+
+    function canvasResetView() {
+      canvasState.scale = 1;
+      canvasState.panX = 0;
+      canvasState.panY = 0;
+      applyCanvasTransform();
+    }
+
+    /* ========================================================
+       6. MASTER SVG TREE RENDERING ROUTINE
+       ======================================================== */
+    function renderTreeToSvg({
+      svgEl,
+      tree,
+      selectedId = null,
+      highlightMap = {},
+      activeVisitingId = null,
+      onNodeClick = null
+    }) {
+      if (!svgEl) return;
+      let viewG = svgEl.querySelector('#viewport-group');
+      if (!viewG) {
+        initCanvasInteractions(svgEl);
+        viewG = svgEl.querySelector('#viewport-group');
+      }
+      viewG.innerHTML = '';
+
+      if (!tree || !tree.root) return;
+
+      // Run Buchheim algorithm to position coordinates
+      runBuchheimLayout(tree.root);
+
+      // 1. Draw Connecting Edges
+      const edgesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      function drawBranches(node) {
+        if (!node) return;
+        const children = node.multiChildren && node.multiChildren.length > 0 ? node.multiChildren : [node.left, node.right].filter(Boolean);
+        children.forEach(child => {
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', node.x);
+          line.setAttribute('y1', node.y);
+          line.setAttribute('x2', child.x);
+          line.setAttribute('y2', child.y);
+
+          let cls = 'svg-edge';
+          if (highlightMap[node.id] === 'ancestor' && (highlightMap[child.id] === 'ancestor' || child.id === selectedId)) {
+            cls += ' path-highlight';
+          }
+          line.setAttribute('class', cls);
+          edgesGroup.appendChild(line);
+          drawBranches(child);
+        });
+      }
+      drawBranches(tree.root);
+      viewG.appendChild(edgesGroup);
+
+      // 2. Draw Nodes
+      const nodesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      function drawNodeEntities(node) {
+        if (!node) return;
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('class', `node-group ${activeVisitingId === node.id ? 'visiting-pulse' : ''}`);
+        g.setAttribute('transform', `translate(${node.x}, ${node.y})`);
+
+        const isBTreeNode = Boolean(node.keys);
+        if (isBTreeNode) {
+          // B-Tree multi-key box rendering
+          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect.setAttribute('x', '-38');
+          rect.setAttribute('y', '-18');
+          rect.setAttribute('width', '76');
+          rect.setAttribute('height', '36');
+          rect.setAttribute('rx', '10');
+          rect.setAttribute('fill', node.id === selectedId ? '#1B4332' : '#FFFFFF');
+          rect.setAttribute('stroke', '#2D6A4F');
+          rect.setAttribute('stroke-width', '2.5');
+          g.appendChild(rect);
+
+          const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          txt.setAttribute('text-anchor', 'middle');
+          txt.setAttribute('dy', '0.36em');
+          txt.setAttribute('fill', node.id === selectedId ? '#FFFFFF' : '#2D2721');
+          txt.setAttribute('font-family', '"JetBrains Mono", monospace');
+          txt.setAttribute('font-size', '13px');
+          txt.setAttribute('font-weight', '700');
+          txt.textContent = `[ ${node.keys.join(' | ')} ]`;
+          g.appendChild(txt);
+        } else {
+          // Circle Node Rendering
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('r', '22');
+          circle.setAttribute('class', 'node-circle');
+
+          let fill = '#FFFFFF';
+          let stroke = '#8C8275';
+          let strokeW = '2.5';
+          let textColor = '#2D2721';
+
+          // Color based on active model and relationship
+          if (node.color === 'RED') {
+            fill = '#FEE2E2';
+            stroke = '#DC2626';
+            textColor = '#991B1B';
+          } else if (node.color === 'BLACK') {
+            fill = '#1E293B';
+            stroke = '#0F172A';
+            textColor = '#FFFFFF';
+          }
+
+          if (node.id === selectedId) {
+            fill = '#1B4332';
+            stroke = '#2D6A4F';
+            strokeW = '4';
+            textColor = '#FFFFFF';
+          } else if (activeVisitingId === node.id) {
+            fill = '#D97706';
+            stroke = '#B45309';
+            strokeW = '4';
+            textColor = '#FFFFFF';
+          } else if (highlightMap[node.id]) {
+            const rel = highlightMap[node.id];
+            if (rel === 'parent') { stroke = '#D97706'; strokeW = '3.5'; fill = '#FFFBEB'; textColor = '#B45309'; }
+            else if (rel === 'child') { stroke = '#2563EB'; strokeW = '3.5'; fill = '#EFF6FF'; textColor = '#1E40AF'; }
+            else if (rel === 'sibling') { stroke = '#8B5CF6'; strokeW = '3'; fill = '#F5F3FF'; textColor = '#6D28D9'; }
+            else if (rel === 'ancestor') { stroke = '#C2410C'; strokeW = '3'; fill = '#FEF3F0'; textColor = '#9A3412'; }
+          }
+
+          circle.setAttribute('fill', fill);
+          circle.setAttribute('stroke', stroke);
+          circle.setAttribute('stroke-width', strokeW);
+          g.appendChild(circle);
+
+          // Value Text
+          const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          txt.setAttribute('text-anchor', 'middle');
+          txt.setAttribute('dy', '0.36em');
+          txt.setAttribute('fill', textColor);
+          txt.setAttribute('font-family', '"JetBrains Mono", monospace');
+          txt.setAttribute('font-size', '13.5px');
+          txt.setAttribute('font-weight', '700');
+          txt.textContent = node.value;
+          g.appendChild(txt);
+
+          // AVL Balance Factor Badge (Top right)
+          if (activeTreeModel === 'avl') {
+            const bf = (tree.getHeight ? tree.getHeight(node.left) : 0) - (tree.getHeight ? tree.getHeight(node.right) : 0);
+            const bfBadge = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            bfBadge.setAttribute('x', '16');
+            bfBadge.setAttribute('y', '-14');
+            bfBadge.setAttribute('font-size', '9.5px');
+            bfBadge.setAttribute('font-weight', '700');
+            bfBadge.setAttribute('font-family', '"JetBrains Mono", monospace');
+            bfBadge.setAttribute('fill', Math.abs(bf) > 1 ? '#DC2626' : '#2D6A4F');
+            bfBadge.textContent = `${bf > 0 ? '+' : ''}${bf}`;
+            g.appendChild(bfBadge);
+          }
+        }
+
+        g.addEventListener('click', (e) => {
+          e.stopPropagation();
+          sound.click();
+          if (onNodeClick) onNodeClick(node);
+        });
+
+        nodesGroup.appendChild(g);
+
+        if (node.multiChildren) node.multiChildren.forEach(drawNodeEntities);
+        else {
+          if (node.left) drawNodeEntities(node.left);
+          if (node.right) drawNodeEntities(node.right);
+        }
+      }
+      drawNodeEntities(tree.root);
+      viewG.appendChild(nodesGroup);
+    }
+
+    /* ========================================================
+       7. WORKBENCH CONTROLLER
+       ======================================================== */
+    let activeTreeModel = 'bst';
+    let currentTree = new BinarySearchTree();
+    let wbSelectedNodeId = null;
+
+    function switchTreeModel(modelType) {
+      activeTreeModel = modelType;
+      document.querySelectorAll('.model-tab-btn').forEach(btn => {
+        btn.className = 'model-tab-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-paper-700 hover:text-paper-900 transition-all';
+      });
+      const activeBtn = document.getElementById(`model-tab-${modelType}`);
+      if (activeBtn) activeBtn.className = 'model-tab-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-forest-700 shadow-sm transition-all';
+
+      if (modelType === 'bst') currentTree = new BinarySearchTree();
+      else if (modelType === 'avl') currentTree = new AVLTree();
+      else if (modelType === 'rbt') currentTree = new RedBlackTree();
+      else if (modelType === 'btree') currentTree = new BTree();
+
+      wbLoadPreset('ppt');
+      showToast(`Switched to ${modelType.toUpperCase()} Engine`);
+    }
+
+    function renderWorkbench() {
+      const svg = document.getElementById('wb-svg');
+      const emptyPrompt = document.getElementById('wb-empty-prompt');
+
+      if (!currentTree.root) {
+        let viewG = svg.querySelector('#viewport-group');
+        if (viewG) viewG.innerHTML = '';
+        if (emptyPrompt) emptyPrompt.classList.remove('hidden');
+        clearNodeInspector();
+        return;
+      }
+      if (emptyPrompt) emptyPrompt.classList.add('hidden');
+
+      const highlightMap = {};
+      if (wbSelectedNodeId && currentTree.findById) {
+        const parent = currentTree.getParent(wbSelectedNodeId);
+        if (parent) highlightMap[parent.id] = 'parent';
+        const node = currentTree.findById(wbSelectedNodeId);
+        if (node) {
+          if (node.left) highlightMap[node.left.id] = 'child';
+          if (node.right) highlightMap[node.right.id] = 'child';
+          currentTree.getAncestors(wbSelectedNodeId).forEach(a => highlightMap[a.id] = 'ancestor');
+        }
+      }
+
+      renderTreeToSvg({
+        svgEl: svg,
+        tree: currentTree,
+        selectedId: wbSelectedNodeId,
+        highlightMap,
+        onNodeClick: (node) => {
+          wbSelectedNodeId = node.id;
+          renderWorkbench();
+          updateNodeInspector(node);
+          addXP(15);
+        }
+      });
+    }
+
+    function wbInsertAction() {
+      const input = document.getElementById('wb-input-val');
+      const val = parseInt(input.value, 10);
+      if (isNaN(val)) {
+        showToast('Please type a numeric key!', 'error');
+        sound.error();
+        return;
+      }
+      const node = currentTree.insert(val);
+      input.value = '';
+      if (node) wbSelectedNodeId = node.id;
+      sound.success();
+      addXP(25);
+      renderWorkbench();
+    }
+
+    function wbSearchAction() {
+      const input = document.getElementById('wb-input-val');
+      const val = parseInt(input.value, 10);
+      if (isNaN(val)) { showToast('Type a key to search', 'error'); return; }
+      if (!currentTree.find) { showToast('Search active for binary trees'); return; }
+
+      const res = currentTree.find(val);
+      if (res) {
+        sound.success();
+        showToast(`Found Key [${val}]! Path length: ${res.path.length}`, 'success');
+        wbSelectedNodeId = res.node.id;
+        renderWorkbench();
+        updateNodeInspector(res.node);
+      } else {
+        sound.error();
+        showToast(`Key [${val}] not found in tree`, 'error');
+      }
+    }
+
+    function wbDeleteSelectedAction() {
+      if (!wbSelectedNodeId) {
+        showToast('Click a node first to prune it', 'error');
+        return;
+      }
+      if (currentTree.delete) {
+        currentTree.delete(wbSelectedNodeId);
+        wbSelectedNodeId = currentTree.root ? currentTree.root.id : null;
+        sound.step();
+        showToast('Deleted node successfully');
+        renderWorkbench();
+      }
+    }
+
+    function wbClearTree() {
+      if (activeTreeModel === 'btree') currentTree = new BTree();
+      else if (activeTreeModel === 'avl') currentTree = new AVLTree();
+      else if (activeTreeModel === 'rbt') currentTree = new RedBlackTree();
+      else currentTree = new BinarySearchTree();
+      wbSelectedNodeId = null;
+      renderWorkbench();
+      showToast('Cleared Workbench Plot');
+    }
+
+    function wbLoadPreset(type) {
+      if (activeTreeModel === 'btree') currentTree = new BTree();
+      else if (activeTreeModel === 'avl') currentTree = new AVLTree();
+      else if (activeTreeModel === 'rbt') currentTree = new RedBlackTree();
+      else currentTree = new BinarySearchTree();
+
+      let keys = [8, 5, 9, 1, 7, 2, 4, 11, 3];
+      if (type === 'balanced') keys = [16, 8, 24, 4, 12, 20, 28];
+      else if (type === 'skewed') keys = [10, 20, 30, 40, 50];
+      else if (type === 'random') {
+        keys = [];
+        while (keys.length < 7) {
+          const r = Math.floor(Math.random() * 85) + 10;
+          if (!keys.includes(r)) keys.push(r);
+        }
+      }
+      keys.forEach(k => currentTree.insert(k));
+      wbSelectedNodeId = currentTree.root ? currentTree.root.id : null;
+      renderWorkbench();
+      if (wbSelectedNodeId && currentTree.findById) {
+        updateNodeInspector(currentTree.findById(wbSelectedNodeId));
+      }
+    }
+
+    function updateNodeInspector(node) {
+      document.getElementById('hud-val').textContent = node.value;
+      if (currentTree.getParent) {
+        const p = currentTree.getParent(node.id);
+        document.getElementById('hud-parent').textContent = p ? p.value : 'None (Root)';
+        const children = [node.left, node.right].filter(Boolean);
+        document.getElementById('hud-children').textContent = children.length > 0 ? children.map(c => c.value).join(', ') : 'None (Leaf)';
+        document.getElementById('hud-degree').textContent = children.length;
+        const anc = currentTree.getAncestors(node.id);
+        document.getElementById('hud-depth').textContent = `${anc.length} (Level ${anc.length})`;
+        document.getElementById('hud-height').textContent = currentTree.getNodeHeight ? currentTree.getNodeHeight(node) - 1 : 0;
+        document.getElementById('hud-bf').textContent = currentTree.getBalanceFactor ? currentTree.getBalanceFactor(node) : '-';
+        document.getElementById('hud-size').textContent = currentTree.getSubtreeSize ? currentTree.getSubtreeSize(node) : 1;
+        const path = [...anc.slice().reverse().map(a => a.value), node.value];
+        document.getElementById('hud-path').textContent = path.join(' → ');
+      }
+    }
+
+    function clearNodeInspector() {
+      ['hud-val', 'hud-parent', 'hud-children', 'hud-degree', 'hud-depth', 'hud-height', 'hud-bf', 'hud-size', 'hud-path'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '-';
+      });
+    }
+
+    /* ========================================================
+       8. TRAVERSAL LAB & CALL STACK ENGINE
+       ======================================================== */
+    const travTree = new BinarySearchTree();
+    let currentTravAlgo = 'preorder';
+    let travSteps = [];
+    let travStepIdx = -1;
+    let travTimer = null;
+    let travIsPlaying = false;
+
+    function initTraversalLab() {
+      travTree.root = null;
+      [8, 5, 9, 1, 7, 12].forEach(k => travTree.insert(k));
+      buildTraversalSteps();
+      travReset();
+    }
+
+    function setLabTraversal(algo) {
+      if (travIsPlaying) toggleTravPlay();
+      currentTravAlgo = algo;
+      ['preorder', 'inorder', 'postorder', 'levelorder'].forEach(a => {
+        const btn = document.getElementById(`tab-trav-a` === `tab-trav-${a}` ? `tab-trav-${a}` : `tab-trav-${a}`);
+        if (btn) {
+          if (a === algo) {
+            btn.className = 'px-2.5 py-1 text-xs font-bold rounded-lg bg-white text-forest-700 shadow-sm';
+          } else {
+            btn.className = 'px-2.5 py-1 text-xs font-semibold rounded-lg text-paper-700';
+          }
+        }
+      });
+
+      const explanation = {
+        preorder: 'Preorder (VLR): Visit Vertex &rarr; Traverse Left Subtree &rarr; Traverse Right Subtree.',
+        inorder: 'Inorder (LVR): Traverse Left Subtree &rarr; Visit Vertex &rarr; Traverse Right Subtree (Sorted sequence for BSTs).',
+        postorder: 'Postorder (LRV): Traverse Left Subtree &rarr; Traverse Right Subtree &rarr; Visit Vertex last.',
+        levelorder: 'Level-Order (BFS): Breadth-First walk visiting nodes top-to-bottom, left-to-right using a FIFO Queue.'
+      };
+      document.getElementById('trav-rule-explanation').innerHTML = explanation[algo];
+      document.getElementById('stack-inspector-title').innerHTML = algo === 'levelorder' ? '<span>📥</span> FIFO Queue Frame' : '<span>📚</span> Recursive Call Stack';
+
+      buildTraversalSteps();
+      travReset();
+    }
+
+    function buildTraversalSteps() {
+      travSteps = [];
+      const visited = [];
+
+      if (currentTravAlgo === 'preorder') {
+        const stack = [];
+        function walk(node) {
+          if (!node) return;
+          stack.push(`preorder(Node ${node.value})`);
+          visited.push(node);
+          travSteps.push({
+            node,
+            visited: [...visited],
+            frames: [...stack]
+          });
+          walk(node.left);
+          walk(node.right);
+          stack.pop();
+        }
+        walk(travTree.root);
+      } else if (currentTravAlgo === 'inorder') {
+        const stack = [];
+        function walk(node) {
+          if (!node) return;
+          stack.push(`inorder(Node ${node.value})`);
+          walk(node.left);
+          visited.push(node);
+          travSteps.push({
+            node,
+            visited: [...visited],
+            frames: [...stack]
+          });
+          walk(node.right);
+          stack.pop();
+        }
+        walk(travTree.root);
+      } else if (currentTravAlgo === 'postorder') {
+        const stack = [];
+        function walk(node) {
+          if (!node) return;
+          stack.push(`postorder(Node ${node.value})`);
+          walk(node.left);
+          walk(node.right);
+          visited.push(node);
+          travSteps.push({
+            node,
+            visited: [...visited],
+            frames: [...stack]
+          });
+          stack.pop();
+        }
+        walk(travTree.root);
+      } else {
+        // BFS / Level-Order Queue
+        const q = [travTree.root];
+        while (q.length > 0) {
+          const curr = q.shift();
+          visited.push(curr);
+          if (curr.left) q.push(curr.left);
+          if (curr.right) q.push(curr.right);
+          travSteps.push({
+            node: curr,
+            visited: [...visited],
+            frames: q.map(n => `Queue: Node [${n.value}]`)
+          });
+        }
+      }
+      document.getElementById('trav-counter-badge').textContent = `0 / ${travSteps.length}`;
+    }
+
+    function renderTraversalFrame(activeNodeId, visitedArr, frames) {
+      const svg = document.getElementById('trav-svg');
+      renderTreeToSvg({
+        svgEl: svg,
+        tree: travTree,
+        activeVisitingId: activeNodeId
+      });
+
+      // Breadcrumbs trail
+      const container = document.getElementById('trav-breadcrumbs-container');
+      container.innerHTML = '';
+      if (visitedArr.length === 0) {
+        container.innerHTML = '<span class="text-xs text-paper-600 font-mono italic">Start traversal to begin streaming output...</span>';
+      } else {
+        visitedArr.forEach((n, idx) => {
+          const pill = document.createElement('span');
+          const isLatest = idx === visitedArr.length - 1;
+          pill.className = `px-2.5 py-1 rounded-md text-xs font-mono font-bold transition-all ${
+            isLatest ? 'bg-ochre-500 text-white shadow-sm scale-110' : 'bg-forest-50 text-forest-700 border border-forest-200'
+          }`;
+          pill.textContent = `[${n.value}]`;
+          container.appendChild(pill);
+          if (idx < visitedArr.length - 1) {
+            const arr = document.createElement('span');
+            arr.className = 'text-paper-600 text-xs font-bold';
+            arr.textContent = '→';
+            container.appendChild(arr);
+          }
+        });
+      }
+
+      // Stack / Queue frames
+      const list = document.getElementById('stack-frames-list');
+      const badge = document.getElementById('stack-count-badge');
+      list.innerHTML = '';
+      badge.textContent = `${frames.length} ${currentTravAlgo === 'levelorder' ? 'Queue Items' : 'Frames'}`;
+
+      if (frames.length === 0) {
+        list.innerHTML = '<div class="p-3 rounded-xl border border-paper-200 bg-paper-50 text-xs text-paper-600 text-center font-mono">Stack empty (Execution complete)</div>';
+        return;
+      }
+      frames.slice().reverse().forEach((f, idx) => {
+        const item = document.createElement('div');
+        item.className = `p-2 rounded-lg border text-xs font-mono font-semibold flex items-center justify-between ${
+          idx === 0 ? 'bg-forest-50 border-forest-300 text-forest-800' : 'bg-paper-50 border-paper-200 text-paper-700'
+        }`;
+        item.innerHTML = `<span>${f}</span> ${idx === 0 ? '<span class="text-[10px] bg-forest-200 text-forest-800 px-1 rounded">TOP</span>' : ''}`;
+        list.appendChild(item);
+      });
+    }
+
+    function travStepForward() {
+      if (travStepIdx + 1 < travSteps.length) {
+        travStepIdx++;
+        const s = travSteps[travStepIdx];
+        sound.step();
+        renderTraversalFrame(s.node.id, s.visited, s.frames);
+        document.getElementById('trav-counter-badge').textContent = `${travStepIdx + 1} / ${travSteps.length}`;
+        if (travStepIdx === travSteps.length - 1) {
+          sound.success();
+          addXP(40);
+          showToast(`Completed ${currentTravAlgo.toUpperCase()} Walk! +40 XP`, 'success');
+          if (travIsPlaying) toggleTravPlay();
+        }
+      } else {
+        if (travIsPlaying) toggleTravPlay();
+      }
+    }
+
+    function travStepBackward() {
+      if (travStepIdx > 0) {
+        travStepIdx--;
+        const s = travSteps[travStepIdx];
+        sound.step();
+        renderTraversalFrame(s.node.id, s.visited, s.frames);
+        document.getElementById('trav-counter-badge').textContent = `${travStepIdx + 1} / ${travSteps.length}`;
+      } else if (travStepIdx === 0) {
+        travReset();
+      }
+    }
+
+    function toggleTravPlay() {
+      travIsPlaying = !travIsPlaying;
+      const icon = document.getElementById('trav-play-icon');
+      const label = document.getElementById('trav-play-label');
+      if (travIsPlaying) {
+        icon.textContent = '⏸';
+        label.textContent = 'Pause';
+        if (travStepIdx >= travSteps.length - 1) travReset();
+        runTravLoop();
+      } else {
+        icon.textContent = '▶';
+        label.textContent = 'Play';
+        clearTimeout(travTimer);
+      }
+    }
+
+    function runTravLoop() {
+      if (!travIsPlaying) return;
+      const speed = parseInt(document.getElementById('trav-speed-slider').value, 10) || 800;
+      if (travStepIdx + 1 < travSteps.length) {
+        travStepForward();
+        travTimer = setTimeout(runTravLoop, speed);
+      } else {
+        toggleTravPlay();
+      }
+    }
+
+    function travReset() {
+      if (travIsPlaying) toggleTravPlay();
+      travStepIdx = -1;
+      document.getElementById('trav-counter-badge').textContent = `0 / ${travSteps.length}`;
+      renderTraversalFrame(null, [], []);
+    }
+
+    function updateTravSpeed() {
+      const ms = document.getElementById('trav-speed-slider').value;
+      document.getElementById('trav-speed-label').textContent = `${(ms / 1000).toFixed(1)}s`;
+    }
+
+    /* ========================================================
+       9. DUAL HEAP & LINEAR MEMORY ARRAY VISUALIZER
+       ======================================================== */
+    class BinaryHeapVisualizer {
+      constructor(type = 'min') {
+        this.type = type;
+        this.data = [4, 8, 12, 16, 20, 24];
+      }
+
+      compare(a, b) {
+        return this.type === 'min' ? a < b : a > b;
+      }
+
+      insert(val) {
+        this.data.push(val);
+        this.heapifyUp(this.data.length - 1);
+      }
+
+      heapifyUp(i) {
+        while (i > 0) {
+          const parentIdx = Math.floor((i - 1) / 2);
+          if (this.compare(this.data[i], this.data[parentIdx])) {
+            [this.data[i], this.data[parentIdx]] = [this.data[parentIdx], this.data[i]];
+            i = parentIdx;
+          } else break;
+        }
+      }
+
+      extract() {
+        if (this.data.length === 0) return null;
+        if (this.data.length === 1) return this.data.pop();
+        const root = this.data[0];
+        this.data[0] = this.data.pop();
+        this.heapifyDown(0);
+        return root;
+      }
+
+      heapifyDown(i) {
+        const len = this.data.length;
+        while (true) {
+          let target = i;
+          const left = 2 * i + 1;
+          const right = 2 * i + 2;
+          if (left < len && this.compare(this.data[left], this.data[target])) target = left;
+          if (right < len && this.compare(this.data[right], this.data[target])) target = right;
+          if (target !== i) {
+            [this.data[i], this.data[target]] = [this.data[target], this.data[i]];
+            i = target;
+          } else break;
+        }
+      }
+
+      toBinaryTree() {
+        if (this.data.length === 0) return null;
+        const nodes = this.data.map((val, idx) => ({ id: idx + 1, value: val, left: null, right: null, idx }));
+        nodes.forEach((n, idx) => {
+          const leftIdx = 2 * idx + 1;
+          const rightIdx = 2 * idx + 2;
+          if (leftIdx < nodes.length) n.left = nodes[leftIdx];
+          if (rightIdx < nodes.length) n.right = nodes[rightIdx];
+        });
+        return { root: nodes[0] };
+      }
+    }
+
+    const heapEngine = new BinaryHeapVisualizer('min');
+
+    function setHeapType(type) {
+      heapEngine.type = type;
+      document.getElementById('heap-type-min').className = type === 'min' ? 'px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-forest-700 shadow-sm transition-all' : 'px-3 py-1.5 rounded-lg text-xs font-semibold text-paper-700';
+      document.getElementById('heap-type-max').className = type === 'max' ? 'px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-forest-700 shadow-sm transition-all' : 'px-3 py-1.5 rounded-lg text-xs font-semibold text-paper-700';
+      // Re-heapify existing array
+      const arr = [...heapEngine.data];
+      heapEngine.data = [];
+      arr.forEach(x => heapEngine.insert(x));
+      renderHeapView();
+      showToast(`Toggled to ${type.toUpperCase()} HEAP`);
+    }
+
+    function renderHeapView() {
+      const svg = document.getElementById('heap-svg');
+      const treeObj = heapEngine.toBinaryTree();
+      renderTreeToSvg({
+        svgEl: svg,
+        tree: treeObj
+      });
+
+      // Synchronized Memory Array View
+      const arrContainer = document.getElementById('heap-array-container');
+      arrContainer.innerHTML = '';
+      document.getElementById('heap-size-badge').textContent = `Size: ${heapEngine.data.length}`;
+
+      if (heapEngine.data.length === 0) {
+        arrContainer.innerHTML = '<span class="text-xs text-paper-600 font-mono italic">Heap array empty...</span>';
+        return;
+      }
+
+      heapEngine.data.forEach((val, idx) => {
+        const box = document.createElement('div');
+        box.className = 'flex flex-col items-center p-2 rounded-xl bg-white border border-paper-200 shadow-sm min-w-[48px] hover:border-forest-500 cursor-pointer transition-all';
+        box.innerHTML = `
+          <span class="font-mono text-[10px] text-paper-600">i=${idx}</span>
+          <span class="font-mono font-bold text-sm text-forest-800">[${val}]</span>
+        `;
+        box.addEventListener('mouseenter', () => {
+          const parentIdx = Math.floor((idx - 1) / 2);
+          const leftIdx = 2 * idx + 1;
+          const rightIdx = 2 * idx + 2;
+          document.getElementById('heap-status-text').textContent = `Inspecting index ${idx}: Parent = ${parentIdx >= 0 ? parentIdx : 'Root'}, Left Child = ${leftIdx < heapEngine.data.length ? leftIdx : 'None'}, Right Child = ${rightIdx < heapEngine.data.length ? rightIdx : 'None'}.`;
+        });
+        arrContainer.appendChild(box);
+      });
+    }
+
+    function heapInsertAction() {
+      const input = document.getElementById('heap-input-val');
+      const val = parseInt(input.value, 10);
+      if (isNaN(val)) { showToast('Type a valid number', 'error'); return; }
+      heapEngine.insert(val);
+      input.value = '';
+      sound.success();
+      addXP(20);
+      showToast(`Inserted [${val}] & restored heap invariants!`, 'success');
+      renderHeapView();
+    }
+
+    function heapExtractAction() {
+      const val = heapEngine.extract();
+      if (val === null) { showToast('Heap is empty', 'error'); return; }
+      sound.step();
+      showToast(`Extracted Root [${val}]!`, 'info');
+      renderHeapView();
+    }
+
+    function heapRandomAction() {
+      heapEngine.data = [];
+      for (let i = 0; i < 7; i++) {
+        heapEngine.insert(Math.floor(Math.random() * 85) + 5);
+      }
+      sound.success();
+      renderHeapView();
+      showToast('Generated random heap!');
+    }
+
+    function heapClearAction() {
+      heapEngine.data = [];
+      renderHeapView();
+      showToast('Cleared Heap');
+    }
+
+    /* ========================================================
+       10. ARENA INTERACTIVE PRACTICE & SPEED RUN
+       ======================================================== */
+    const arenaTree = new BinarySearchTree();
+    let arenaTargetAlgo = 'inorder';
+    let arenaExpectedSeq = [];
+    let arenaWalkedSeq = [];
+
+    let speedTimerVal = 60;
+    let speedTimerInterval = null;
+    let speedScore = 0;
+
+    function setArenaMode(mode) {
+      ['interactive', 'speed', 'mcq'].forEach(m => {
+        const panel = document.getElementById(`arena-${m}-panel`);
+        const tab = document.getElementById(`arena-tab-${m}`);
+        if (panel) panel.classList.toggle('hidden', m !== mode);
+        if (tab) {
+          tab.className = m === mode ? 'px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-forest-700 shadow-sm transition-all' : 'px-3 py-1.5 rounded-lg text-xs font-bold text-paper-700 hover:text-paper-900 transition-all';
+        }
+      });
+      if (mode === 'interactive') newArenaInteractivePuzzle();
+      else if (mode === 'mcq') newArenaMcqPuzzle();
+    }
+
+    function newArenaInteractivePuzzle() {
+      arenaTree.root = null;
+      const count = Math.floor(Math.random() * 2) + 5;
+      const pool = [15, 8, 22, 4, 11, 18, 26, 2, 7];
+      pool.slice(0, count).forEach(k => arenaTree.insert(k));
+
+      const algos = ['preorder', 'inorder', 'postorder'];
+      arenaTargetAlgo = algos[Math.floor(Math.random() * algos.length)];
+
+      document.getElementById('arena-target-badge').textContent = `GOAL: ${arenaTargetAlgo.toUpperCase()}`;
+      const rules = {
+        preorder: 'Rule: 1) Vertex first, 2) Exhaust Left subtree, 3) Exhaust Right subtree.',
+        inorder: 'Rule: 1) Exhaust Left subtree first, 2) Visit Vertex, 3) Exhaust Right subtree.',
+        postorder: 'Rule: 1) Exhaust Left subtree, 2) Exhaust Right subtree, 3) Visit Vertex last.'
+      };
+      document.getElementById('arena-rule-reminder').textContent = rules[arenaTargetAlgo];
+
+      // Build expected sequence
+      arenaExpectedSeq = [];
+      if (arenaTargetAlgo === 'preorder') {
+        const w = (n) => { if (!n) return; arenaExpectedSeq.push(n); w(n.left); w(n.right); };
+        w(arenaTree.root);
+      } else if (arenaTargetAlgo === 'inorder') {
+        const w = (n) => { if (!n) return; w(n.left); arenaExpectedSeq.push(n); w(n.right); };
+        w(arenaTree.root);
+      } else {
+        const w = (n) => { if (!n) return; w(n.left); w(n.right); arenaExpectedSeq.push(n); };
+        w(arenaTree.root);
+      }
+      resetArenaInteractivePuzzle();
+    }
+
+    function resetArenaInteractivePuzzle() {
+      arenaWalkedSeq = [];
+      updateArenaInteractiveUI();
+      document.getElementById('arena-feedback-msg').textContent = 'Select the first node on the tree.';
+      document.getElementById('arena-feedback-msg').className = 'text-paper-700';
+    }
+
+    function updateArenaInteractiveUI() {
+      const svg = document.getElementById('arena-interactive-svg');
+      renderTreeToSvg({
+        svgEl: svg,
+        tree: arenaTree,
+        activeVisitingId: arenaWalkedSeq.length > 0 ? arenaWalkedSeq[arenaWalkedSeq.length - 1].id : null,
+        onNodeClick: (n) => handleArenaNodeClick(n)
+      });
+
+      document.getElementById('arena-interactive-progress').textContent = `${arenaWalkedSeq.length} / ${arenaExpectedSeq.length}`;
+      const trail = document.getElementById('arena-interactive-trail');
+      trail.innerHTML = '';
+      if (arenaWalkedSeq.length === 0) {
+        trail.innerHTML = '<span class="text-xs text-paper-600 font-mono italic">Click the first node on the tree...</span>';
+        return;
+      }
+      arenaWalkedSeq.forEach((n, idx) => {
+        const pill = document.createElement('span');
+        pill.className = 'px-2.5 py-1 rounded-md bg-forest-100 text-forest-800 font-mono text-xs font-bold border border-forest-200';
+        pill.textContent = `[${n.value}]`;
+        trail.appendChild(pill);
+        if (idx < arenaWalkedSeq.length - 1) {
+          const arr = document.createElement('span');
+          arr.className = 'text-paper-600 text-xs font-bold';
+          arr.textContent = '→';
+          trail.appendChild(arr);
+        }
+      });
+    }
+
+    function handleArenaNodeClick(node) {
+      const idx = arenaWalkedSeq.length;
+      if (idx >= arenaExpectedSeq.length) return;
+      const expected = arenaExpectedSeq[idx];
+      const feedback = document.getElementById('arena-feedback-msg');
+
+      if (node.id === expected.id) {
+        sound.step();
+        arenaWalkedSeq.push(node);
+        feedback.textContent = `Correct! Node [${node.value}] is in the proper position.`;
+        feedback.className = 'text-forest-700 font-semibold';
+        updateArenaInteractiveUI();
+
+        if (arenaWalkedSeq.length === arenaExpectedSeq.length) {
+          sound.success();
+          addXP(150);
+          addStreak();
+          feedback.textContent = `🎉 Flawless! Walked the entire ${arenaTargetAlgo.toUpperCase()} path with zero errors! (+150 XP)`;
+          feedback.className = 'text-forest-800 font-bold';
+          showToast('Puzzle Cleared! 🌟', 'success');
+        }
+      } else {
+        sound.error();
+        breakStreak();
+        let why = '';
+        if (arenaTargetAlgo === 'inorder') {
+          why = `In Inorder (LVR), you must exhaust the left subtree before visiting [${node.value}]. Expected [${expected.value}].`;
+        } else if (arenaTargetAlgo === 'preorder') {
+          why = `In Preorder (VLR), visit vertex before subtrees. Expected [${expected.value}], but clicked [${node.value}].`;
+        } else {
+          why = `In Postorder (LRV), both subtrees must be complete before visiting a vertex. Expected [${expected.value}].`;
+        }
+        feedback.textContent = `⚠️ Rule Violation: ${why}`;
+        feedback.className = 'text-terracotta-600 font-medium';
+      }
+    }
+
+    /* 60-Second Speed Run Mode */
+    function startSpeedRun() {
+      document.getElementById('speed-run-body').classList.add('hidden');
+      document.getElementById('speed-active-arena').classList.remove('hidden');
+      speedTimerVal = 60;
+      speedScore = 0;
+      document.getElementById('speed-timer').textContent = `${speedTimerVal}s`;
+
+      clearInterval(speedTimerInterval);
+      speedTimerInterval = setInterval(() => {
+        speedTimerVal--;
+        document.getElementById('speed-timer').textContent = `${speedTimerVal}s`;
+        if (speedTimerVal <= 0) {
+          clearInterval(speedTimerInterval);
+          sound.success();
+          showToast(`⚡ Time Up! Speed Run score: ${speedScore} solved!`, 'success');
+          addXP(speedScore * 50);
+          document.getElementById('speed-active-arena').classList.add('hidden');
+          document.getElementById('speed-run-body').classList.remove('hidden');
+        }
+      }, 1000);
+      generateSpeedRunRound();
+    }
+
+    function generateSpeedRunRound() {
+      const tree = new BinarySearchTree();
+      [12, 6, 18, 3, 9, 21].forEach(k => tree.insert(k));
+      const svg = document.getElementById('speed-svg');
+      renderTreeToSvg({ svgEl: svg, tree });
+
+      const algos = ['preorder', 'inorder', 'postorder'];
+      const chosen = algos[Math.floor(Math.random() * algos.length)];
+      document.getElementById('speed-prompt').textContent = `Rapidly Choose ${chosen.toUpperCase()} Traversal:`;
+
+      let correct = [];
+      if (chosen === 'preorder') { const w = (n) => { if (!n) return; correct.push(n.value); w(n.left); w(n.right); }; w(tree.root); }
+      else if (chosen === 'inorder') { const w = (n) => { if (!n) return; w(n.left); correct.push(n.value); w(n.right); }; w(tree.root); }
+      else { const w = (n) => { if (!n) return; w(n.left); w(n.right); correct.push(n.value); }; w(tree.root); }
+
+      const correctStr = correct.join(', ');
+      const options = [correctStr, correct.slice().reverse().join(', '), [6, 12, 3, 9, 18, 21].join(', ')];
+      options.sort(() => Math.random() - 0.5);
+
+      const box = document.getElementById('speed-options-container');
+      box.innerHTML = '';
+      options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'p-3 rounded-xl bg-white border border-paper-200 text-xs font-mono font-medium hover:border-forest-500 shadow-sm';
+        btn.textContent = opt;
+        btn.onclick = () => {
+          if (opt === correctStr) {
+            sound.step();
+            speedScore++;
+            addStreak();
+            generateSpeedRunRound();
+          } else {
+            sound.error();
+            breakStreak();
+          }
+        };
+        box.appendChild(btn);
+      });
+    }
+
+    /* MCQ Challenge Mode */
+    function newArenaMcqPuzzle() {
+      const tree = new BinarySearchTree();
+      [14, 7, 21, 3, 10, 16, 25].forEach(k => tree.insert(k));
+      const svg = document.getElementById('mcq-svg');
+      renderTreeToSvg({ svgEl: svg, tree });
+
+      const algos = ['preorder', 'inorder', 'postorder'];
+      const chosen = algos[Math.floor(Math.random() * algos.length)];
+      document.getElementById('mcq-badge-type').textContent = `${chosen.toUpperCase()}`;
+
+      let correct = [];
+      if (chosen === 'preorder') { const w = (n) => { if (!n) return; correct.push(n.value); w(n.left); w(n.right); }; w(tree.root); }
+      else if (chosen === 'inorder') { const w = (n) => { if (!n) return; w(n.left); correct.push(n.value); w(n.right); }; w(tree.root); }
+      else { const w = (n) => { if (!n) return; w(n.left); w(n.right); correct.push(n.value); }; w(tree.root); }
+
+      const correctStr = correct.join(', ');
+      const distractors = [correct.slice().reverse().join(', '), [3, 7, 14, 10, 16, 21, 25].join(', '), [14, 21, 7, 25, 16, 10, 3].join(', ')];
+      const opts = Array.from(new Set([correctStr, ...distractors])).slice(0, 3);
+      opts.sort(() => Math.random() - 0.5);
+
+      const container = document.getElementById('mcq-options-container');
+      const fb = document.getElementById('mcq-feedback-box');
+      fb.className = 'hidden';
+      container.innerHTML = '';
+
+      opts.forEach((opt, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'w-full text-left p-3 rounded-xl bg-paper-50 hover:bg-white border border-paper-200 text-xs font-mono font-medium shadow-sm transition-all';
+        btn.innerHTML = `<strong>${String.fromCharCode(65 + idx)}.</strong> ${opt}`;
+        btn.onclick = () => {
+          fb.classList.remove('hidden');
+          if (opt === correctStr) {
+            sound.success();
+            addXP(100);
+            addStreak();
+            fb.className = 'mt-3 p-3 rounded-xl bg-forest-50 border border-forest-200 text-forest-800 text-xs';
+            fb.innerHTML = `<strong>✅ Correct! (+100 XP)</strong> Matches the ${chosen.toUpperCase()} formula perfectly.`;
+          } else {
+            sound.error();
+            breakStreak();
+            fb.className = 'mt-3 p-3 rounded-xl bg-terracotta-50 border border-terracotta-200 text-terracotta-600 text-xs';
+            fb.innerHTML = `<strong>🍂 Incorrect.</strong> Double check the order of operations for ${chosen.toUpperCase()}.`;
+          }
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    /* ========================================================
+       11. NAVIGATION & LIFECYCLE BOOTSTRAP
+       ======================================================== */
+    function navigate(viewName) {
+      document.querySelectorAll('.view-section').forEach(sec => sec.classList.add('hidden'));
+      const target = document.getElementById(`view-${viewName}`);
+      if (target) target.classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('bg-paper-100', 'text-forest-700', 'font-bold');
+        btn.classList.add('text-paper-700');
+      });
+      const activeBtn = document.getElementById(`nav-${viewName}`);
+      if (activeBtn) activeBtn.classList.add('bg-paper-100', 'text-forest-700', 'font-bold');
+
+      if (viewName === 'workbench') renderWorkbench();
+      else if (viewName === 'traversal') initTraversalLab();
+      else if (viewName === 'heap') renderHeapView();
+      else if (viewName === 'arena') setArenaMode('interactive');
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadProgress();
+      switchTreeModel('bst');
+      initCanvasInteractions(document.getElementById('wb-svg'));
+      navigate('workbench');
+    });
+  </script>
+</body>
+</html>
